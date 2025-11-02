@@ -1,6 +1,9 @@
+from flask import Flask, Response
 import cv2 
 import sys
 import numpy as np
+
+app = Flask(__name__)
 
 # Parameters for Realsense Color channel, 
 RS_INTRINSIC_COLOR_640 = np.array([
@@ -9,8 +12,8 @@ RS_INTRINSIC_COLOR_640 = np.array([
 
 RS_DIST_COLOR_640 = np.array([0,0,0,0,0])
 
-def main(channel):
-    cap = cv2.VideoCapture(int(channel))
+def gen_frames():
+    cap = cv2.VideoCapture(5)
     #cap.set(cv2.CAP_PROP_FRAME_WIDTH,640)
     #w  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     #print(f"w: {w}")
@@ -20,6 +23,7 @@ def main(channel):
 
     while 1:
         ret, frame = cap.read()
+        print(ret)
         if not ret:
             print("Could not read frame")
         
@@ -69,22 +73,30 @@ def main(channel):
                     rvec=rvecs,
                     tvec=tvecs,
                     length=100.0,
-                    thickness=10
-                )
+                    thickness=10)
 
-        cv2.imshow("Camera Feed",img_clone)
-        if cv2.waitKey(1) & 0xFF == ord('p'):
-            # Print pose relative to camera
-            if has_found_tag:
-                print(f"X: {tvecs[0]*0.001} m, \nY: {tvecs[1]*0.001} m, \nZ: {tvecs[2]*0.001} m")
-                # X right, Y down, Z forward
+        ret, buffer = cv2.imencode('.jpg', img_clone)
+        frame = buffer.tobytes()
+        yield (b'--frame\r\n'
+                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')           
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+       # if cv2.waitKey(1) & 0xFF == ord('p'):
+       #     # Print pose relative to camera
+       #     if has_found_tag:
+       #         print(f"X: {tvecs[0]*0.001} m, \nY: {tvecs[1]*0.001} m, \nZ: {tvecs[2]*0.001} m")
+       #         # X right, Y down, Z forward
+
+       # if cv2.waitKey(1) & 0xFF == ord('q'):
+       #     break
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/')
+def index():
+    return '<html><body><h1>Camera Stream</h1><img src="/video_feed"></body></html>'
 
 if __name__ == "__main__":
-    if len(sys.argv)> 1:
-        channel = sys.argv[1]
-    else:
-        channel = 8 # realsense RGB color channel by default on my computer
-    main(channel=channel)
+    app.run(host='0.0.0.0', port=5000)
