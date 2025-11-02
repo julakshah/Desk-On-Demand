@@ -13,7 +13,11 @@ RS_INTRINSIC_COLOR_640 = np.array([
 RS_DIST_COLOR_640 = np.array([0,0,0,0,0])
 
 def gen_frames():
-    cap = cv2.VideoCapture(5)
+    if len(sys.argv) > 1:
+        video_channel = int(sys.argv[1])
+    else:
+        video_channel = 5
+    cap = cv2.VideoCapture(video_channel)
     #cap.set(cv2.CAP_PROP_FRAME_WIDTH,640)
     #w  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     #print(f"w: {w}")
