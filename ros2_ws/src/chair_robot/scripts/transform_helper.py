@@ -1,16 +1,20 @@
+#!/usr/bin/env python3
+
 import math
+import os
 import yaml
 import numpy as np
-from geometry_msgs.msg import TransformStamped, PoseStamped
+from geometry_msgs.msg import TransformStamped, PoseStamped, Quaternion
 import rclpy
 from rclpy.node import Node
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
+from ament_index_python import get_package_share_directory
 
 class StaticFrameBroadcaster(Node):
     """  Class to publish static frame transforms, loaded from file, when initialized """
     def __init__(self,path):
         super().__init__("static_frame_broadcast")
-        self.broadcaster = StaticTransformBroadcaster(self)
+        self.broadcasters = []
         self.init_static_transforms(path)
 
     def init_static_transforms(self,config_path):
@@ -18,12 +22,18 @@ class StaticFrameBroadcaster(Node):
         with open(config_path,'r') as f:
             config = yaml.safe_load(f)
 
-        transforms = config.transforms
+        transforms = config["transforms"]
+        print(transforms)
+        tf_count = 0
         for parent in transforms:
-            for child in parent:
-                self.make_transform(parent=parent,child=child,transform=transforms[parent][child])
+            print(parent)
+            for child in transforms[parent]:
+                print(child)
+                self.broadcasters.append(StaticTransformBroadcaster(self))
+                self.make_transform(parent=parent,child=child,transform=transforms[parent][child],broadcast=self.broadcasters[tf_count])
+                tf_count += 1
 
-    def make_transform(self,parent,child,transform):
+    def make_transform(self,parent,child,transform,broadcast):
         t = TransformStamped()
 
         quat = quaternion_from_euler(float(transform[3]),float(transform[4]),float(transform[5]))
@@ -36,7 +46,7 @@ class StaticFrameBroadcaster(Node):
         t.header.frame_id = parent
         t.child_frame_id = child
 
-        self.broadcaster.sendTransform(t)
+        broadcast.sendTransform(t)
 
 def quaternion_from_euler(ai, aj, ak):
     ai /= 2.0
@@ -53,11 +63,11 @@ def quaternion_from_euler(ai, aj, ak):
     sc = si*ck
     ss = si*sk
 
-    q = np.empty((4, ))
-    q[0] = cj*sc - sj*cs
-    q[1] = cj*ss + sj*cc
-    q[2] = cj*cs - sj*sc
-    q[3] = cj*cc + sj*ss
+    q = Quaternion()
+    q.x = cj*sc - sj*cs
+    q.y = cj*ss + sj*cc
+    q.z = cj*cs - sj*sc
+    q.w = cj*cc + sj*ss
 
     return q
 
@@ -85,3 +95,12 @@ class FrameUpdater(Node):
         t.transform.rotation = orientation
 
         self.tf_broadcaster.sendTransform(t)
+
+if __name__ == "__main__":
+    rclpy.init()
+    share_dir = get_package_share_directory("chair_robot")
+    config_path = os.path.join(share_dir,"config","marker_ids.yaml")
+    #print(f"share dir: {share_dir}")
+    #print(f"config path: {config_path}")
+    rclpy.spin(StaticFrameBroadcaster(config_path))
+    rclpy.shutdown()

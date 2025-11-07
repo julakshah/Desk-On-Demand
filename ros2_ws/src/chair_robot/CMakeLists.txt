@@ -28,7 +28,12 @@ install(PROGRAMS
   scripts/sub_test.py
   scripts/pose_from_aruco.py
   scripts/movement.py
+  scripts/transform_helper.py
   DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()
