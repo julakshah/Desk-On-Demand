@@ -1,4 +1,4 @@
-FROM osrf/ros:humble-desktop
+FROM ghcr.io/sloretz/ros:humble-desktop
 
 RUN apt-get update && apt-get install -y \
     python3 nano git libgl1 python3-pip
