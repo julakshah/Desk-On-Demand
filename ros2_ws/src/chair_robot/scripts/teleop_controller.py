@@ -5,7 +5,7 @@ ROS2 Node to add teleop control to an autonomous robot
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Vector3
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Bool
 from rclpy.qos import qos_profile_sensor_data
 import termios
 import tty
@@ -30,9 +30,13 @@ class TeleopController(Node):
         super().__init__('teleop_node')
         self.teleop_pub = self.create_publisher(Int32, 'use_teleop', 10)
         self.vel_pub  = self.create_publisher(Twist, "cmd_vel", 10)
-        self.create_timer(0.1,self.run_loop)
+        self.create_timer(0.01,self.run_loop)
         self.is_publishing = True
         self.id_controlled = -1
+        self.speed_percent = 0.5
+        self.linear = 0.0
+        self.angular = 0.0
+        self.hb_pub = self.create_publisher(Bool, "heartbeat", 10)
 
     def run_loop(self):
         """
@@ -43,6 +47,9 @@ class TeleopController(Node):
         the autonomous node. 
         Exits on SIGINT / Ctrl + C
         """
+        # Publish heartbeat
+        self.hb_pub.publish(Bool(True))
+
         key = self.get_key()
         print(f"key = {key}")
 
@@ -73,16 +80,37 @@ class TeleopController(Node):
         if self.is_publishing:
             if key == 'w':
                 print("Moving forward")
-                self.drive(linear=0.4)
+                self.linear = 0.4
+                self.angular = 0.0
+                self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
             if key == 'a':
                 print("Turning left")
-                self.drive(angular=0.4)
+                self.linear = 0.0
+                self.angular = 0.4
+                self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
             if key == 's':
                 print("Moving backward")
-                self.drive(linear=-0.4)
+                self.linear = -0.4
+                self.angular = -0.0
+                self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
             if key == 'd':
                 print("Turning right")
-                self.drive(angular=-0.4)
+                self.linear = 0.0
+                self.angular = -0.4
+                self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
+        
+        if key == 'j':
+            self.speed_percent += 0.05
+            self.speed_percent = min(1,max(0,self.speed_percent))
+            print(f"Increment speed to {self.speed_percent} of max")
+            self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
+
+        if key == 'k':
+            self.speed_percent -= 0.05
+            self.speed_percent = min(1,max(0,self.speed_percent))
+            print(f"Decrement speed to {self.speed_percent} of max")
+            self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
+
 
         # Stop program when Ctrl C pressed
         if key == '\x03':
@@ -128,13 +156,14 @@ class TeleopController(Node):
         # Shutdown by publishing a message to init control (stopping robots)
         msg_int = Int32()
         msg_int.data = 999
+        self.drive(0.0,0.0)
         self.teleop_pub.publish(msg_int)
 
 def main():
     rclpy.init()
     node = TeleopController()
     rclpy.spin(node)
-    node.drive(node.velocity,linear=0.0,angular=0.0)
+    node.drive(linear=0.0,angular=0.0)
     rclpy.shutdown()
 
 if __name__ == "__main__":
