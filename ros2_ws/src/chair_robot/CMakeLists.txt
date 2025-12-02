@@ -29,6 +29,8 @@ install(PROGRAMS
   scripts/pose_from_aruco.py
   scripts/movement.py
   scripts/transform_helper.py
+  scripts/robot_state.py
+  scripts/teleop_controller.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -46,7 +46,6 @@ class TestMotorSpin(Node):
             case "teleop":
                 return
             case _:
-                return
                 if self.new_target is not None:
                     y = self.new_target[0] 
                     if y < 0:
