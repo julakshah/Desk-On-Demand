@@ -2,7 +2,8 @@
 
 import sys
 import math
-import pigpio
+#import pigpio
+import lgpio
 
 class EncoderRead:
     def __init__(self):
@@ -14,11 +15,24 @@ class EncoderRead:
         self.track_width = 0.1 ### CHANGE TO REAL VAL
 
         # Configure pins for input and no pull up
-        self.pi = pigpio.pi()
-        self.pi.set_mode(self.gpio_pin_l, pigpio.INPUT)
-        self.pi.set_mode(self.gpio_pin_r, pigpio.INPUT)
-        self.pi.set_pull_up_down(self.gpio_pin_l, pigpio.PUD_OFF)
-        self.pi.set_pull_up_down(self.gpio_pin_r, pigpio.PUD_OFF)
+        #self.pi = pigpio.pi()
+        #self.pi.set_mode(self.gpio_pin_l, pigpio.INPUT)
+        #self.pi.set_mode(self.gpio_pin_r, pigpio.INPUT)
+        #self.pi.set_pull_up_down(self.gpio_pin_l, pigpio.PUD_OFF)
+        #self.pi.set_pull_up_down(self.gpio_pin_r, pigpio.PUD_OFF)
+
+        self.chip = lgpio.gpiochip_open(0)
+        if self.chip < 0:
+            raise RuntimeError(f"Failed to open gpiochip0: {lgpio.error_text(self.chip)}")
+
+        # claim pins for alerts on both edges
+        err = lgpio.gpio_claim_alert(self.chip, self.gpio_pin_l, lgpio.BOTH_EDGES)
+        if err < 0:
+            raise RuntimeError(f"gpio_claim_alert left failed: {lgpio.error_text(err)}")
+
+        err = lgpio.gpio_claim_alert(self.chip, self.gpio_pin_r, lgpio.BOTH_EDGES)
+        if err < 0:
+            raise RuntimeError(f"gpio_claim_alert right failed: {lgpio.error_text(err)}")
 
         self.get_angle_tick_l = None
         self.get_angle_tick_r = None
@@ -36,17 +50,29 @@ class EncoderRead:
         self.ang_vel_r = 0.0
 
         # declare callback function
-        self.cb_l = self.pi.callback(self.gpio_pin_l, pigpio.EITHER_EDGE, self.callback_left)
-        self.cb_r = self.pi.callback(self.gpio_pin_r, pigpio.EITHER_EDGE, self.callback_right)
+        #self.cb_l = self.pi.callback(self.gpio_pin_l, pigpio.EITHER_EDGE, self.callback_left)
+        #self.cb_r = self.pi.callback(self.gpio_pin_r, pigpio.EITHER_EDGE, self.callback_right)
 
-    def callback_left(self, gpio, level_new, tick):
+        self.cb_l = lgpio.callback(self.chip,
+                                   self.gpio_pin_l,
+                                   lgpio.BOTH_EDGES,
+                                   self.callback_left)
+
+        self.cb_r = lgpio.callback(self.chip,
+                                   self.gpio_pin_r,
+                                   lgpio.BOTH_EDGES,
+                                   self.callback_right)
+
+    def callback_left(self, chip, gpio, level_new, tick):
+        print(f"cb left")
         if level_new == 1:
             self.past_rise_l = self.rise_l
             self.rise_l = tick
         elif level_new == 0:
             self.fall_l = tick
 
-    def callback_right(self, gpio, level_new, tick):
+    def callback_right(self, chip, gpio, level_new, tick):
+        print(f"cb right")
         if level_new == 1:
             self.past_rise_r = self.rise_r
             self.rise_r = tick
@@ -69,8 +95,8 @@ class EncoderRead:
 
             past_angle_update_tick = self.get_angle_tick_r
             self.get_angle_tick_r = t1_rise
-            #angle_period = self.get_angle_tick_r - past_angle_update_tick
-            angle_period = pigpio.tickDiff(past_angle_update_tick,self.get_angle_tick_r)
+            angle_period = self.get_angle_tick_r - past_angle_update_tick
+            #angle_period = pigpio.tickDiff(past_angle_update_tick,self.get_angle_tick_r)
         else:
             t0_rise = self.past_rise_l
             t_fall = self.fall_l
@@ -85,14 +111,14 @@ class EncoderRead:
             
             past_angle_update_tick = self.get_angle_tick_l
             self.get_angle_tick_l = t1_rise
-            #angle_period = self.get_angle_tick_l - past_angle_update_tick
-            angle_period = pigpio.tickDiff(past_angle_update_tick,self.get_angle_tick_l)
+            angle_period = self.get_angle_tick_l - past_angle_update_tick
+            #angle_period = pigpio.tickDiff(past_angle_update_tick,self.get_angle_tick_l)
         
         # Convert to RPM given sensor behavior function
         # Using numbers from https://github.com/RobTillaart/AS5600 
         
-        #period = t1_rise - t0_rise
-        period = pigpio.tickDiff(t0_rise,t1_rise)
+        period = t1_rise - t0_rise
+        #period = pigpio.tickDiff(t0_rise,t1_rise)
         dutyCycle = (1.0 * (t_fall - t0_rise)) / period
         angle = (dutyCycle - 0.0294) * (359.9 / (0.9706 - 0.0294))
 
@@ -142,20 +168,12 @@ class EncoderRead:
         """
         return (self.v_r - self.v_l) / self.track_width
 
-    def close(self):
-        self.cb_l.cancel()
-        self.cb_r.cancel()
-        self.pi.stop()
-
 if __name__ == "__main__":
     enc = EncoderRead()
     try:
         while True:
-            enc.get_rpm()
             enc.update_rpm(right=False)
             enc.update_rpm(right=True)
             print(f"Velocities: left {enc.v_l}, right {enc.v_r}, linear {enc.vel}, angular {enc.angular_vel}")
     except KeyboardInterrupt:
         print("Stopping...")
-    finally:
-        enc.close()
