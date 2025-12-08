@@ -9,7 +9,7 @@ from gpiozero import PWMLED, LED
 from time import sleep
 import numpy as np
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Bool
 
 class TestMotorSpin(Node):
     def __init__(self):
@@ -25,12 +25,15 @@ class TestMotorSpin(Node):
 
         self.timer = self.create_timer(0.1, self.run_loop)
 
-
         self.new_target = None
         self.current_target = None
         self.pose_sub = self.create_subscription(Float32MultiArray, "/marker_pose", self.process_pose, 10)
         self.cmd_vel_sub = self.create_subscription(Twist,"/cmd_vel",self.process_twist,10)
         self.use_teleop_sub = self.create_subscription(Int32,"/use_teleop",self.process_teleop,10)
+
+        self.heartbeat_sub = self.create_subscription(Bool,"/heartbeat",self.heartbeat_callback,10)
+        self.latest_hb_time = self.get_clock().now().nanoseconds
+
         self.pose_bound = 2
         self.id = 0 # id of robot
         self.teleop_state = 0 # id of robot controlled by teleop
@@ -82,6 +85,9 @@ class TestMotorSpin(Node):
             self.m2high.on()
             self.motor2.value = m2
             print(f"M2 low on, M2 high off, value {m1}")
+
+    def heartbeat_callback(self, msg: Bool):
+        self.latest_hb_time = self.get_clock().now().nanoseconds
 
     def process_twist(self, msg: Twist):
         # Change for actual units / something parameterizable

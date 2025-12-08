@@ -48,7 +48,9 @@ class TeleopController(Node):
         Exits on SIGINT / Ctrl + C
         """
         # Publish heartbeat
-        self.hb_pub.publish(Bool(True))
+        hb = Bool()
+        hb.data = True
+        self.hb_pub.publish(hb)
 
         key = self.get_key()
         print(f"key = {key}")
@@ -80,23 +82,23 @@ class TeleopController(Node):
         if self.is_publishing:
             if key == 'w':
                 print("Moving forward")
-                self.linear = 0.4
+                self.linear = 1.0
                 self.angular = 0.0
                 self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
             if key == 'a':
                 print("Turning left")
                 self.linear = 0.0
-                self.angular = 0.4
+                self.angular = 1.0
                 self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
             if key == 's':
                 print("Moving backward")
-                self.linear = -0.4
+                self.linear = -1.0
                 self.angular = -0.0
                 self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
             if key == 'd':
                 print("Turning right")
                 self.linear = 0.0
-                self.angular = -0.4
+                self.angular = -1.0
                 self.drive(linear=self.linear*self.speed_percent,angular=self.angular*self.speed_percent)
         
         if key == 'j':
