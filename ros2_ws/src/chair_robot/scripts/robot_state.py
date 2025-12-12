@@ -18,7 +18,6 @@ class RobotState(Node):
         super().__init__("robot_state",namespace="robot0")
         self.timer = self.create_timer(0.01,self.main_loop)
         self.name = "robot0"
-        self.ns
         self.id = 0
         self.follow_id = follow_id # id of robot; person target has id -1 
         self.has_lidar = use_lidar

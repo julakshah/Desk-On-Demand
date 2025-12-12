@@ -44,7 +44,9 @@ class VideoProcess:
 
         share_dir = get_package_share_directory("chair_robot")
         config_path = os.path.join(share_dir,"config","marker_ids.yaml")
-        config = yaml.safe_load(config_path)
+        with open(config_path, 'r')as f:
+            config = yaml.safe_load(f)
+        print(f"Config: {config}")
 
         self.known_ids = config["ids"] # map tag ID to robot ID
         self.robot_names = config["names"] # map robot ID to robot name
@@ -76,6 +78,8 @@ class VideoProcess:
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     del(self)
             return
+        else:
+            print(f"Got corners!")
 
         n_markers = len(corners[0])
         for i in range(n_markers):
@@ -85,7 +89,8 @@ class VideoProcess:
                 cameraMatrix=self.camMatrix,
                 distCoeffs=self.distCoeffs,
             )
-            robot_id = ids[i] # ID of robot, given tag
+            robot_id = ids[i].squeeze() # ID of robot, given tag
+            print(f"Known ids: {ids}")
             if robot_id in self.known_ids: 
                 name = self.known_ids[robot_id]
                 pose_diffs[name] = [rvecs,tvecs]
@@ -138,10 +143,11 @@ if __name__ == "__main__":
     node = Node("video_process")
     vid_process = VideoProcess(node,gui,channel)
     print("starting spin")
-    rclpy.spin(node)
+    #rclpy.spin(node)
 
     while True:
         try:
+            #rclpy.spin_once(node)
             pose_diffs = vid_process.process_frame()
             print(f"Pose diffs: {pose_diffs}")
         except KeyboardInterrupt:

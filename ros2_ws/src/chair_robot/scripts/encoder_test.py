@@ -21,7 +21,7 @@ class EncoderRead:
         #self.pi.set_pull_up_down(self.gpio_pin_l, pigpio.PUD_OFF)
         #self.pi.set_pull_up_down(self.gpio_pin_r, pigpio.PUD_OFF)
 
-        self.chip = lgpio.gpiochip_open(0)
+        self.chip = lgpio.gpiochip_open(4)
         if self.chip < 0:
             raise RuntimeError(f"Failed to open gpiochip0: {lgpio.error_text(self.chip)}")
 
@@ -114,6 +114,8 @@ class EncoderRead:
             angle_period = self.get_angle_tick_l - past_angle_update_tick
             #angle_period = pigpio.tickDiff(past_angle_update_tick,self.get_angle_tick_l)
         
+        if angle_period == 0:
+            return
         # Convert to RPM given sensor behavior function
         # Using numbers from https://github.com/RobTillaart/AS5600 
         
@@ -171,9 +173,12 @@ class EncoderRead:
 if __name__ == "__main__":
     enc = EncoderRead()
     try:
+        count = 0
         while True:
+            count += 1
             enc.update_rpm(right=False)
             enc.update_rpm(right=True)
-            print(f"Velocities: left {enc.v_l}, right {enc.v_r}, linear {enc.vel}, angular {enc.angular_vel}")
+            if (enc.v_l != 0 or enc.v_r != 0) and count % 100 == 0:
+                print(f"Velocities: left {enc.v_l}, right {enc.v_r}, linear {enc.vel}, angular {enc.angular_vel}")
     except KeyboardInterrupt:
-        print("Stopping...")
+        print("Stopping")
