@@ -24,8 +24,24 @@ class RobotState(Node):
         self.teleop_sub = self.create_subscription(Int32,"/use_teleop",self.use_teleop_callback,10)
         self.state = "follow"
 
+        # Are we the leader or follower robot?
+        self.declare_parameter("is_trashcan",True)
+        self.is_trashcan = self.get_parameter("is_trashcan").get_parameter_value().bool_value
+
+        if self.is_trashcan:
+            self.leader_reached_target_pub = self.create_publisher(Bool,"/leader_reached_target",10)
+            self.waypoint_pub = self.create_publisher(TransformStamped,"/waypoint",10)
+            # publisher for laser scan?
+        else:
+            self.leader_reached_target_sub = self.create_subscription(Bool,"/leader_reached_target",self.leader_reached_target_callback,10)
+            self.waypoint_sub = self.create_subscription(TransformStamped,"/waypoint",self.waypoint_callback,10)
+            # sub for laser scan?
+
         # Create TF2 frame broadcasters
         self.robot_to_world = FrameUpdater(node=self,parent=self.name,child="world",id=self.id)
+
+        # We need to continually use this FrameUpdater to get our distance from the robots/target
+        self.frame_update_timer = self.create_timer(0.01,self.robot_to_world.read_transforms)
 
         # If we're the base robot, do the target frame update
         if self.id == 0:
@@ -49,9 +65,30 @@ class RobotState(Node):
         self.heartbeat_sub = self.create_subscription(Bool,"/heartbeat",self.heartbeat_callback,10)
         self.latest_hb_time = self.get_clock().now().nanoseconds
 
-        self.pose_bound = 2 # distance epsilon to pass before we assume the target has moved
+        self.pose_bound = 0.5 # distance epsilon to pass before we assume the target has moved
+        self.follow_distance = 2.0 # distance to maintain following
         self.teleop_state = 0 # id of robot controlled by teleop
         self.reorient_flag = True
+
+    def leader_reached_target_callback(self, msg: Bool):
+        """
+        Invoked when the leader robot reaches the target (flips state to Hold)
+        """
+        if msg.data:
+            # The leader reached the target --- we should now follow a waypoint
+            self.state = "waypoint"
+        else:
+            # The leader lost the target --- we should keep following it or holding position
+            target_distance = self.robot_to_world.distances[self.follow_id]
+            if target_distance > self.follow_distance + self.pose_bound:
+                self.state = "follow"
+            else:
+                self.state = "hold"
+
+    def waypoint_callback(self, msg: TransformStamped):
+        """
+        Invoked when the leader robot reaches the target and passes a waypoint for the follower
+        """
 
     def main_loop(self):        
         match (self.state):
@@ -74,17 +111,22 @@ class RobotState(Node):
                 pose_updates = self.vid_process.process_frame()
                 self.state_change()
             case "waypoint":
-                pass
-                self.state_change
+                # We want to navigate to the waypoint (world frame) from where we are now.
+                self.state_change()
     
     def state_change(self):
+        # How far are we from the target?
+        target_distance = self.robot_to_world.distances[self.follow_id]
+        
         match (self.state):
             case "follow":
                 # If we're in follow, flip state when we get close
-                pass
+                if target_distance < self.follow_distance:
+                    self.state = "hold"
             case "hold":
                 # If we're in hold, wait for target to go away
-                pass
+                if target_distance > self.follow_distance + self.pose_bound:
+                    self.state = "follow"
             case "teleop":
                 # If we're in teleop, rely on controller to change state
                 pass

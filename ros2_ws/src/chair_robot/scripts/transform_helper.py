@@ -76,11 +76,22 @@ def quaternion_from_euler(ai, aj, ak):
 
 class FrameUpdater:
     """ Class to publish frame transforms as a response to pose topic updates """
-    def __init__(self,node: Node,parent,child,id):
+    def __init__(self,node: Node,follow_target,parent,child,id):
         self.node = node
         self.parent_frame = parent # frame we want to update
         self.child_frame = child # world
         self.id = id
+        self.ids = []
+
+        share_dir = get_package_share_directory("chair_robot")
+        config_path = os.path.join(share_dir,"config","marker_ids.yaml")
+        with open(config_path, 'r')as f:
+            config = yaml.safe_load(f)
+        print(f"Config: {config}")
+
+        self.known_ids = config["ids"] # map tag ID to robot ID
+        self.robot_names = config["names"] # map robot ID to robot name
+        self.follow_target = follow_target # robot ID
 
         # Topic which holds all pose updates
         self.transform_sub = self.node.create_subscription(TransformStamped,"/pose_updates",self.update_pose_callback,10)
@@ -89,12 +100,30 @@ class FrameUpdater:
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer,self)
 
+        self.transforms = {}
+        self.distances = {}
+
         #self.tf_pub = self.node.create_publisher(TransformStamped,"/pose_updates",10)
 
         # Timer to read encoder data
         self.encoder_timer = self.node.create_timer(0.01,)
         self.encoder_pin_l = PWMLED(0)
         self.encoder_pin_r = PWMLED(0)
+    
+    def read_transforms(self):
+        for id in self.known_ids.values():
+            if id != self.id:
+                t = self.tf_buffer.lookup_transform(
+                    self.parent_frame,
+                    self.robot_names[id],
+                    self.node.get_clock().now(),
+                )
+                print(f"Got transform from robot {self.robot_names[id]} to my own frame, {self.parent_frame}")
+                self.transforms[id] = t
+                translation = t.transform._translation
+                self.distances[id] = np.sqrt(translation.x**2 + translation.y**2 + translation.z**2)
+                print(f"Got distance from {self.parent_frame} to {self.robot_names[id]} as {self.distances[id]}")
+
 
     def read_encoder(self):
         data_l = 0
