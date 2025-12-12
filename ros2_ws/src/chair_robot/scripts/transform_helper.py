@@ -7,7 +7,10 @@ import numpy as np
 from geometry_msgs.msg import TransformStamped, PoseStamped, Quaternion
 import rclpy
 from rclpy.node import Node
-from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
+from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster, TransformListener, Buffer
+from tf_transformations import inverse_matrix
+from gpiozero import PWMLED, LED
+
 from ament_index_python import get_package_share_directory
 
 class StaticFrameBroadcaster(Node):
@@ -71,30 +74,79 @@ def quaternion_from_euler(ai, aj, ak):
 
     return q
 
-class FrameUpdater(Node):
+class FrameUpdater:
     """ Class to publish frame transforms as a response to pose topic updates """
-    def __init__(self,parent,child,topic):
-        super().__init__('frame_updater')
-        self.parent_frame = parent
-        self.child_frame = child
-        self.create_subscription(PoseStamped,topic,self.update_pose_callback,10)
-        self.tf_broadcaster = TransformBroadcaster(self)
-        self.timer = self.create_timer(0.1, self.broadcast_timer_callback)
+    def __init__(self,node: Node,parent,child,id):
+        self.node = node
+        self.parent_frame = parent # frame we want to update
+        self.child_frame = child # world
+        self.id = id
 
-    def update_pose_callback(self,msg):
-        pt = msg.pose.position
-        orientation = msg.pose.orientation
+        # Topic which holds all pose updates
+        self.transform_sub = self.node.create_subscription(TransformStamped,"/pose_updates",self.update_pose_callback,10)
 
-        t = TransformStamped()
-        t.header.stamp = self.get_clock().now().to_msg()
+        self.tf_broadcaster = TransformBroadcaster(self.node)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer,self)
+
+        #self.tf_pub = self.node.create_publisher(TransformStamped,"/pose_updates",10)
+
+        # Timer to read encoder data
+        self.encoder_timer = self.node.create_timer(0.01,)
+        self.encoder_pin_l = PWMLED(0)
+        self.encoder_pin_r = PWMLED(0)
+
+    def read_encoder(self):
+        data_l = 0
+
+    def update_pose_callback(self,msg: TransformStamped):
+        frame_p = msg.header.frame_id 
+        frame_c = msg.child_frame_id
+
+        if frame_p == self.parent_frame:
+            # if we're greater id than the other, we do the update
+            if frame_p > frame_c:
+                self.publish_new_transform(frame_c,msg.pose,False)
+
+        elif frame_c == self.parent_frame:
+            if frame_c > frame_p:
+                self.publish_new_transform(frame_p,msg.pose,True)
+
+                pt = msg.transform.translation
+                orientation = msg.transform.rotation
+
+                t = TransformStamped()
+                t.header.stamp = self.node.get_clock().now().to_msg()
+                t.header.frame_id = self.parent_frame
+                t.child_frame_id = self.child_frame
+                t.transform.translation = pt
+                t.transform.rotation = orientation
+
+                self.node.get_logger().info(f"Update frame: {self}, translation: {t.transform.translation}, rot: {t.transform.rotation}")
+                self.tf_broadcaster.sendTransform(t)
+
+    def publish_new_transform(self,to_frame,pose,inverse):
+        t = self.tf_buffer.lookup_transform(
+            "world",
+            to_frame,
+            rclpy.time.Time())
+        # parent_frame->to_frame = parent_frame->world * world->to_frame
+        # parent_frame->world = parent_frame->to_frame * to_frame->world
+        t.header.stamp = self.node.get_clock().now().to_msg()
         t.header.frame_id = self.parent_frame
         t.child_frame_id = self.child_frame
-        t.transform.translation.x = pt.x
-        t.transform.translation.y = pt.y
-        t.transform.translation.z = pt.z
-        t.transform.rotation = orientation
+        t.transform.translation.x = pose.position.x
+        t.transform.translation.y = pose.positiom.y
+        t.transform.translation.z = pose.positiom.z
+        t.transform.rotation = pose.orientation
 
+        if inverse:
+            t.transform = inverse_matrix(t.transform)
+
+        # Publish transform
         self.tf_broadcaster.sendTransform(t)
+
+
 
 if __name__ == "__main__":
     rclpy.init()

@@ -1,3 +1,4 @@
 #!/usr/bin/sh
 docker run -it --rm $(for d in /dev/video*; do printf -- '--device=%s ' "$d"; done) \
-    -e ROS_DOMAIN_ID=99 desk-on-demand bash
+    $(for d in /dev/gpiochip*; do printf -- "--device %s:%s " "$d" "$d"; done) \
+    -e ROS_DOMAIN_ID=99 --network=host --ipc=host --pid=host desk-on-demand bash
