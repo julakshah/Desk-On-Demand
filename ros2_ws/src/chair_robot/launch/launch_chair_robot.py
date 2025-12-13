@@ -18,6 +18,6 @@ def generate_launch_description():
             package='chair_robot',
             exectuable='robot_state',
             name='state_machine'
-            parameters=[{'is_trashcan': True}]
+            parameters=[{'is_trashcan': False}]
             )
-        ])
+        ]) 
