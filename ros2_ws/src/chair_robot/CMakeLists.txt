@@ -27,6 +27,7 @@ install(PROGRAMS
   scripts/pub_test.py
   scripts/sub_test.py
   scripts/pose_from_aruco.py
+  scripts/pose_from_vision.py
   scripts/movement.py
   scripts/transform_helper.py
   scripts/robot_state.py

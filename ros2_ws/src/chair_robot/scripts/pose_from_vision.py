@@ -13,8 +13,10 @@ from geometry_msgs.msg import TransformStamped
 import queue
 from pose_from_aruco import VideoProcess
 import mediapipe as mp
+from mediapipe import solutions
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from mediapipe.framework.formats import landmark_pb2
 from ament_index_python import get_package_share_directory
 
 model_path = '/absolute/path/to/pose_landmarker.task'
@@ -36,16 +38,8 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 class PoseFromVision(Node):
     
     def __init__(self):
-        self.node = node
-        self.name = name
-        self.use_gui = use_gui
-        self.cap = cv2.VideoCapture(int(0))
-        if not self.cap.isOpened():
-            print("Could not open video")
-            sys.exit()
+        super().__init__('pose_from_vision')
 
-        self.pose_pub = self.node.create_publisher(Float32MultiArray,"/marker_pose",10)
-        
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_100)
         self.detect_params = cv2.aruco.DetectorParameters()
         self.detector = cv2.aruco.ArucoDetector(self.aruco_dict,detectorParams=self.detect_params)
@@ -54,7 +48,7 @@ class PoseFromVision(Node):
         self.distCoeffs = RS_DIST_COLOR_640
 
         # mediapipe landmarker
-        self.cv_result = mp.tasks.vision.PoseLandmarkerResult
+        self.cv_result = mp.tasks.vision.PoseLandmarkerResult(pose_landmarks=[], pose_world_landmarks=[], segmentation_masks=[])
         self.landmarker = mp.tasks.vision.PoseLandmarker
         self.create_landmarker()
         self.cap = self.create_cap(attempt=0)
@@ -65,6 +59,7 @@ class PoseFromVision(Node):
     def detect(self):
         # pull frame from cv2
         _, frame = self.cap.read()
+        print(f"frame is {frame}")
         frame = cv2.flip(frame, 1)  # pylint: disable=no-member
 
         # draw the landmarks on the page for visualization
@@ -129,7 +124,6 @@ class PoseFromVision(Node):
         self.landmarker = self.landmarker.create_from_options(options)
 
 
-# From mediapipe example: https://colab.research.google.com/github/googlesamples/mediapipe/blob/main/examples/pose_landmarker/python/%5BMediaPipe_Python_Tasks%5D_Pose_Landmarker.ipynb#scrollTo=s3E6NFV-00Qt
 def draw_landmarks_on_image(rgb_image, detection_result):
   pose_landmarks_list = detection_result.pose_landmarks
   annotated_image = np.copy(rgb_image)
@@ -151,8 +145,7 @@ def draw_landmarks_on_image(rgb_image, detection_result):
   return annotated_image
 
 if __name__ == '__main__':
-    rclpy.init(args=args)
+    rclpy.init()
     pose_from_vision = PoseFromVision()
     rclpy.spin(pose_from_vision)
-    pose_from_vision.destroy_node()
     rclpy.shutdown()
