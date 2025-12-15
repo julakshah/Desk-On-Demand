@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import math
 import os
+import sys
 import yaml
 from time import sleep
 import numpy as np
@@ -15,7 +16,7 @@ from geometry_msgs.msg import Twist
 from gpiozero import PWMLED, LED
 
 class RobotState(Node):
-    def __init__(self, use_lidar=False, follow_id=-1):
+    def __init__(self, use_lidar=False, follow_id=-1, channel=0):
         super().__init__("robot_state",namespace="robot0")
         self.timer = self.create_timer(0.01,self.main_loop)
         self.name = "robot0"
@@ -39,36 +40,44 @@ class RobotState(Node):
             # sub for laser scan?
 
         # Create TF2 frame broadcasters
-        self.robot_to_world = FrameUpdater(node=self,parent=self.name,child="world",id=self.id)
+        self.robot_to_world = FrameUpdater(node=self,follow_target=-1,parent=self.name,child="world",id=self.id)
 
         # We need to continually use this FrameUpdater to get our distance from the robots/target
         self.frame_update_timer = self.create_timer(0.01,self.robot_to_world.read_transforms)
 
         # If we're the base robot, do the target frame update
         if self.id == 0:
-            self.target_to_world = FrameUpdater(node=self,parent="target",child="world",id=-1)
+            self.target_to_world = FrameUpdater(node=self,follow_target=-1,parent="target",child="world",id=-1)
         
         # Create video processing node
-        self.vid_process = VideoProcess(node=self,use_gui=False,channel=0,follow_target=-1,name=self.name)
+        self.vid_process = VideoProcess(node=self,use_gui=False,channel=channel,follow_target=-1,name=self.name)
 
         # Set pins for motor control
-        self.motor1 = PWMLED(18) #right one (for now)
-        self.motor2 = PWMLED(27) #lt one (for now)
+        self.motor1 = PWMLED(20) #right one (for now)
+        self.motor2 = PWMLED(21) #lt one (for now)
 
         self.m1high = LED(17)
         self.m1low = LED(22)
         self.m2high = LED(23)
         self.m2low = LED(24)
 
+        if not self.is_trashcan:
+            self.motor1 = PWMLED(2)
+            self.m1high = LED(3)
+            self.m1low = LED(4)
+            self.motor2 = PWMLED(17)
+            self.m2high = LED(27)
+            self.m2low = LED(22)
+
         #self.pose_sub = self.create_subscription(Float32MultiArray, "marker_pose", self.process_pose, 10)
         self.cmd_vel_sub = self.create_subscription(Twist,"cmd_vel",self.process_twist,10)
         self.cmd_vel_pub = self.create_publisher(Twist,"cmd_vel",10)
 
         self.heartbeat_sub = self.create_subscription(Bool,"/heartbeat",self.heartbeat_callback,10)
-        self.latest_hb_time = self.get_clock().now().nanoseconds
+        self.latest_hb_time = None # should be (seconds, ns)
 
-        self.pose_bound = 0.5 # distance epsilon to pass before we assume the target has moved
-        self.follow_distance = 2.0 # distance to maintain following
+        self.pose_bound = 0.2 # distance epsilon to pass before we assume the target has moved
+        self.follow_distance = 0.8 # distance to maintain following
         self.teleop_state = 0 # id of robot controlled by teleop
         self.reorient_flag = True
 
@@ -106,15 +115,31 @@ class RobotState(Node):
         Invoked when the leader robot reaches the target and passes a waypoint for the follower
         """
 
-    def main_loop(self):        
+    def main_loop(self):      
+        print(f"\nbeginning main loop in state {self.state}\n")  
         match (self.state):
             case "follow":
                 pose_updates = self.vid_process.process_frame()
-                for update in pose_updates:
-                    camera_frame = self.name + "/camera"
+                if pose_updates is not None and len(pose_updates) > 0:
+                    for update in pose_updates:
+                        camera_frame = self.name + "/camera"
+                        print(f"Got pose update!")
+                try:
+                    target_pos_tf = self.robot_to_world.tf_buffer.lookup_transform(
+                        self.robot_to_world.robot_names[self.follow_id],
+                        self.name,
+                        rclpy.time.Time()
+                    )
+                except:
+                    self.state_change()
+                    return
+                target_pos = target_pos_tf.transform.translation
+                print(f"Driving to transform: {target_pos}")
+                self.drive_to_transform(target_pos)
                 self.state_change()
             case "hold":
                 pose_updates = self.vid_process.process_frame()
+                self.drive_raw(0.0,0.0)
                 self.state_change()
             case "teleop":
                 pass
@@ -134,16 +159,26 @@ class RobotState(Node):
     
     def state_change(self):
         # How far are we from the target?
-        target_distance = self.robot_to_world.distances[self.follow_id]
-        
+        if not self.follow_id in self.robot_to_world.distances.keys():
+            print("Don't know where target is!")
+            target_distance = None
+        else:
+            target_distance = self.robot_to_world.distances[self.follow_id]
+        print(f"target distance: {target_distance}\n")
         match (self.state):
             case "follow":
                 # If we're in follow, flip state when we get close
+                if target_distance is None:
+                    self.state = "search"
+                    return
                 if target_distance < self.follow_distance:
                     self.state = "hold"
             case "hold":
                 # If we're in hold, wait for target to go away
-                if target_distance > self.follow_distance + self.pose_bound:
+                if target_distance is None:
+                    self.state = "search"
+                    return
+                if target_distance > self.follow_distance + self.pose_bound or target_distance < self.follow_distance - self.pose_bound:
                     self.state = "follow"
             case "teleop":
                 # If we're in teleop, rely on controller to change state
@@ -153,7 +188,9 @@ class RobotState(Node):
                 pass 
             case "search":
                 # Resume if we find target
-                pass
+                self.drive_raw(0,0)
+                if target_distance is not None:
+                    self.state = "follow"
             case "waypoint":
                 # Hold if we reach waypoint
                 pass
@@ -168,12 +205,14 @@ class RobotState(Node):
         last_time = self.last_PID_times
         current_time = self.get_clock().now().to_msg()
         self.last_PID_times = current_time
-        duration = current_time - last_time
-        dt = duration.to_sec()
+        duration = Duration(seconds=current_time.sec - last_time.sec, nanoseconds=current_time.nanosec - last_time.nanosec)
+        dt = duration.nanoseconds * 1e-9
+        print(f"dt: {dt}")
 
         if translation.x**2 + translation.z**2 < self.follow_distance**2:
             #self.drive_raw(0,0)
             print("too close! correcting")
+        print(f"Getting: {translation.x}, {translation.z}")
 
         angle_err = np.arctan2(translation.x,translation.z)
         linear_err = np.sqrt(translation.x**2 + translation.z**2) - self.follow_distance
@@ -206,6 +245,20 @@ class RobotState(Node):
         self.cmd_vel_pub.publish(cmd)
     
     def drive_raw(self, m1, m2):
+        # Don't drive if we don't have a heartbeat
+        if self.latest_hb_time is None:
+            m1 = 0.0
+            m2 = 0.0
+        else:
+            hb_time = self.latest_hb_time[0] + float(self.latest_hb_time[1]) * 1e-9
+            now = self.get_clock().now().seconds_nanoseconds()
+            now_time = now[0] + float(now[1]) * 1e-9
+            time_since_hb = now_time - hb_time
+            #print(f"Time since heartbeat: {time_since_hb}")
+            if time_since_hb > 1.0:
+                m1 = 0.0
+                m2 = 0.0
+
         print(f"Driving! {m1}, {m2}")
         max_percent = 0.8
         m1 = min(max(-max_percent,m1),max_percent)
@@ -242,7 +295,7 @@ class RobotState(Node):
             self.drive_raw(lin + ang, lin - ang)
 
     def heartbeat_callback(self, msg: Bool):
-        self.latest_hb_time = self.get_clock().now().nanoseconds
+        self.latest_hb_time = self.get_clock().now().seconds_nanoseconds()
 
     def use_teleop_callback(self,msg):
         # Update state --- -1 is auto, teleop if equal to my id, stop if not
@@ -258,7 +311,11 @@ class RobotState(Node):
 
                    
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        channel = 4
+    else:
+        channel = int(sys.argv[1])
     rclpy.init()
-    robot = RobotState()
+    robot = RobotState(channel=channel)
     rclpy.spin(robot)
     rclpy.shutdown()

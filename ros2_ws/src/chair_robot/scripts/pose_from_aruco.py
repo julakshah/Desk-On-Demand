@@ -90,18 +90,21 @@ class VideoProcess:
                 cameraMatrix=self.camMatrix,
                 distCoeffs=self.distCoeffs,
             )
-            robot_id = ids[i].squeeze() # ID of robot, given tag
+            robot_id = ids[i].squeeze().item() # ID of robot, given tag
             print(f"Known ids: {ids}")
-            if robot_id in self.known_ids: 
+            print(f"id: {robot_id} in {self.known_ids}")
+            print(f"types: {type(robot_id)}, type({self.known_ids.keys()})")
+            if robot_id in self.known_ids.keys(): 
                 t = Transform()
-                name = self.known_ids[robot_id]
-                t.translation.x = tvecs[0,0]
-                t.translation.y = tvecs[1,0]
-                t.translation.z = tvecs[2,0]
+                name = self.robot_names[self.known_ids[robot_id]]
+                t.translation.x = tvecs[0,0] / 1e3
+                t.translation.y = tvecs[1,0] / 1e3
+                t.translation.z = tvecs[2,0] / 1e3
+                print(f"t.translation in pose from aruco: {t.translation}")
                 pose_diffs[name] = t
 
         msg = Float32MultiArray()
-        unwrapped_tvecs = [tvecs[0,0],tvecs[1,0],tvecs[2,0]]
+        unwrapped_tvecs = [tvecs[0,0] / 1e3,tvecs[1,0] / 1e3,tvecs[2,0] / 1e3]
         print(unwrapped_tvecs)
         msg.data = unwrapped_tvecs
         self.pose_pub.publish(msg)
@@ -109,9 +112,11 @@ class VideoProcess:
         for name,transform in pose_diffs.items():
             # Publish pose difference
             ts = TransformStamped()
+            print(f"Names: {self.name}, {name}")
             ts.header.frame_id = self.name # our name
             ts.child_frame_id = name # our target's name
             ts.transform = transform
+            print(f"Transform to publish: {ts.transform}\n")
             self.tf_pub.publish(ts)
 
         #print(f"self use gui: {self.use_gui}")

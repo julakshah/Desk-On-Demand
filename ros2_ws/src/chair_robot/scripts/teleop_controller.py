@@ -10,6 +10,8 @@ from rclpy.qos import qos_profile_sensor_data
 import termios
 import tty
 import sys
+import select
+import atexit
 
 class TeleopController(Node):
     """
@@ -29,14 +31,42 @@ class TeleopController(Node):
     def __init__(self):
         super().__init__('teleop_node')
         self.teleop_pub = self.create_publisher(Int32, 'use_teleop', 10)
-        self.vel_pub  = self.create_publisher(Twist, "cmd_vel", 10)
+        self.vel_pub  = self.create_publisher(Twist, "/robot0/cmd_vel", 10)
         self.create_timer(0.01,self.run_loop)
+        self.create_timer(0.01,self.hb_loop)
         self.is_publishing = True
         self.id_controlled = -1
         self.speed_percent = 0.5
         self.linear = 0.0
         self.angular = 0.0
         self.hb_pub = self.create_publisher(Bool, "heartbeat", 10)
+
+        self._stdin_fd = sys.stdin.fileno()
+        self._orig_term_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(self._stdin_fd)
+        atexit.register(self._restore_terminal)
+
+    def _restore_terminal(self):
+        try:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self._orig_term_settings)
+        except Exception:
+            pass
+
+
+    def hb_loop(self):
+        """
+        Publish heartbeat
+        """
+        # Publish heartbeat
+        hb = Bool()
+        hb.data = True
+        self.hb_pub.publish(hb)
+
+    def get_key_3(self):
+        rlist, _, _ = select.select([sys.stdin], [], [], 0.0)
+        if rlist:
+            return sys.stdin.read(1)
+        return None
 
     def run_loop(self):
         """
@@ -47,12 +77,10 @@ class TeleopController(Node):
         the autonomous node. 
         Exits on SIGINT / Ctrl + C
         """
-        # Publish heartbeat
-        hb = Bool()
-        hb.data = True
-        self.hb_pub.publish(hb)
 
-        key = self.get_key()
+        key = self.get_key_3()
+        if key is None:
+            return
         print(f"key = {key}")
 
         # Perform logic based on key identifier
@@ -151,6 +179,16 @@ class TeleopController(Node):
         """
         tty.setraw(sys.stdin.fileno())
         key = sys.stdin.read(1)
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+        return key
+    
+    def get_key_2(self):
+        tty.setraw(sys.stdin.fileno())
+        rlist, _, _ = select.select([sys.stdin], [], [], 0.0)  # non-blocking poll
+        if rlist:
+            key = sys.stdin.read(1)
+        else:
+            key = None
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
         return key
     
