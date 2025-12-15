@@ -90,19 +90,28 @@ class RobotState(Node):
         self.teleop_state = 0 # id of robot controlled by teleop
         self.reorient_flag = True
 
-        self.kP_angle = 0.1
-        self.kI_angle = 0.0
-        self.kD_angle = 0.0
+        self.declare_parameter("kP_angle",0.1)
+        self.kP_angle = self.get_parameter("kP_angle").get_parameter_value().double_value
+        self.declare_parameter("kI_angle",0.0)
+        self.kI_angle = self.get_parameter("kI_angle").get_parameter_value().double_value
+        self.declare_parameter("kD_angle",0.0)
+        self.kD_angle = self.get_parameter("kD_angle").get_parameter_value().double_value
+
+        self.declare_parameter("kP_lin",0.2)
+        self.kP_lin = self.get_parameter("kP_lin").get_parameter_value().double_value
+        self.declare_parameter("kI_lin",0.0)
+        self.kI_lin = self.get_parameter("kI_lin").get_parameter_value().double_value
+        self.declare_parameter("kD_lin",0.0)
+        self.kD_lin = self.get_parameter("kD_lin").get_parameter_value().double_value
+
         self.prev_err_angle = 0.0
         self.err_list_angle = []
 
-        self.kP_lin = 0.2
-        self.kI_lin = 0.0
-        self.kD_lin = 0.0
         self.prev_err_lin = 0.0
         self.err_list_lin = []
 
         self.last_PID_times = self.get_clock().now().to_msg()
+        self.valid_transform_lifetime = 1.0
 
     def leader_reached_target_callback(self, msg: Bool):
         """
@@ -139,6 +148,14 @@ class RobotState(Node):
                         self.name,
                         rclpy.time.Time()
                     )
+                    last_stamp = target_pos_tf.header.stamp
+                    now = self.get_clock().now().to_msg()
+                    if (now.sec + float(now.nanosec) * 1e-9) - (last_stamp.sec + float(last_stamp.nanosec) * 1e-9) > self.valid_transform_lifetime:
+                        # last target tf is too old; we need to stop trying to follow it
+                        self.state = "search"
+                        print(f"\nLost target! Beginning search\n")
+                        self.drive_raw(0.0,0.0)
+                        return
                 except:
                     self.state_change()
                     return
@@ -323,7 +340,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         channel = 4
     else:
-        channel = int(sys.argv[1])
+        channel = 4
     rclpy.init()
     robot = RobotState(channel=channel)
     rclpy.spin(robot)
