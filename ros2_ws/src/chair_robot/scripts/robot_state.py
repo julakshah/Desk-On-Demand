@@ -7,6 +7,7 @@ import numpy as np
 from geometry_msgs.msg import TransformStamped, PoseStamped, Quaternion, TwistStamped, Vector3
 import rclpy
 from rclpy.node import Node
+from rclpy.duration import Duration
 from std_msgs.msg import Int32, Float32MultiArray, Bool
 from transform_helper import FrameUpdater
 from pose_from_aruco import VideoProcess
@@ -59,8 +60,9 @@ class RobotState(Node):
         self.m2high = LED(23)
         self.m2low = LED(24)
 
-        self.pose_sub = self.create_subscription(Float32MultiArray, "/marker_pose", self.process_pose, 10)
-        self.cmd_vel_sub = self.create_subscription(Twist,"/cmd_vel",self.process_twist,10)
+        #self.pose_sub = self.create_subscription(Float32MultiArray, "marker_pose", self.process_pose, 10)
+        self.cmd_vel_sub = self.create_subscription(Twist,"cmd_vel",self.process_twist,10)
+        self.cmd_vel_pub = self.create_publisher(Twist,"cmd_vel",10)
 
         self.heartbeat_sub = self.create_subscription(Bool,"/heartbeat",self.heartbeat_callback,10)
         self.latest_hb_time = self.get_clock().now().nanoseconds
@@ -69,6 +71,20 @@ class RobotState(Node):
         self.follow_distance = 2.0 # distance to maintain following
         self.teleop_state = 0 # id of robot controlled by teleop
         self.reorient_flag = True
+
+        self.kP_angle = 0.1
+        self.kI_angle = 0.0
+        self.kD_angle = 0.0
+        self.prev_err_angle = 0.0
+        self.err_list_angle = []
+
+        self.kP_lin = 0.1
+        self.kI_lin = 0.0
+        self.kD_lin = 0.0
+        self.prev_err_lin = 0.0
+        self.err_list_lin = []
+
+        self.last_PID_times = self.get_clock().now().to_msg()
 
     def leader_reached_target_callback(self, msg: Bool):
         """
@@ -112,6 +128,8 @@ class RobotState(Node):
                 self.state_change()
             case "waypoint":
                 # We want to navigate to the waypoint (world frame) from where we are now.
+                if self.is_trashcan:
+                    pass
                 self.state_change()
     
     def state_change(self):
@@ -139,6 +157,53 @@ class RobotState(Node):
             case "waypoint":
                 # Hold if we reach waypoint
                 pass
+    
+    def drive_to_transform(self, translation: Vector3):
+        """
+        Attempts to drive towards a target, given the translation to it
+        from the robot's center.
+        """
+        # If we're too close, stop
+        # Y is our unused dimension (vertical) as we move in a plane
+        last_time = self.last_PID_times
+        current_time = self.get_clock().now().to_msg()
+        self.last_PID_times = current_time
+        duration = current_time - last_time
+        dt = duration.to_sec()
+
+        if translation.x**2 + translation.z**2 < self.follow_distance**2:
+            #self.drive_raw(0,0)
+            print("too close! correcting")
+
+        angle_err = np.arctan2(translation.x,translation.z)
+        linear_err = np.sqrt(translation.x**2 + translation.z**2) - self.follow_distance
+        err_queue_size = 20
+
+        self.err_list_angle.append(angle_err)
+        if len(self.err_list_angle) > err_queue_size:
+            self.err_list_angle.pop(0)
+
+        self.err_list_lin.append(linear_err)
+        if len(self.err_list_lin) > err_queue_size:
+            self.err_list_lin.pop(0)
+
+        # PID control of angle
+        angle_err_I = sum(self.err_list_angle) * dt
+        angle_err_D = (angle_err - self.prev_err_angle) / dt
+
+        angle_corr = self.kP_angle * angle_err + self.kI_angle * angle_err_I + self.kD_angle * angle_err_D
+        cmd = Twist()
+        cmd.angular.y = angle_corr
+
+        # PID control of angle
+        lin_err_I = sum(self.err_list_lin) * dt
+        lin_err_D = (linear_err - self.prev_err_lin) / dt
+
+        lin_corr = self.kP_lin * linear_err + self.kI_lin * lin_err_I + self.kD_lin * lin_err_D
+        cmd.linear.z = lin_corr
+
+        print(f"Publishing cmd: {cmd}\nIn response to angular error {angle_err} and linear error {linear_err}")
+        self.cmd_vel_pub.publish(cmd)
     
     def drive_raw(self, m1, m2):
         print(f"Driving! {m1}, {m2}")
@@ -170,9 +235,9 @@ class RobotState(Node):
 
     def process_twist(self, msg: Twist):
         # Change for actual units / something parameterizable
-        print(f"I got a twist! {msg.angular.z} angular, {msg.linear.x} linear")
-        ang = msg.angular.z
-        lin = msg.linear.x
+        print(f"I got a twist! {msg.angular.y} angular, {msg.linear.z} linear")
+        ang = msg.angular.y
+        lin = msg.linear.z
         if not (self.state == "stop" or self.state == "drive"):
             self.drive_raw(lin + ang, lin - ang)
 
@@ -190,18 +255,6 @@ class RobotState(Node):
             self.state = "follow"
         else:
             self.state = "stop"
-    
-    def publish_movement_cmd(self,linear,angular):
-        cmd = TwistStamped()
-        cmd.header.frame_id = self.name
-        cmd.header.stamp.nanosec = self.get_clock().now().nanoseconds
-
-        lin = Vector3(linear)
-        ang = Vector3(angular)
-        cmd.twist.linear = lin
-        cmd.twist.angular = ang
-
-        self.cmd_vel_pub.publish(cmd)
 
                    
 if __name__ == "__main__":

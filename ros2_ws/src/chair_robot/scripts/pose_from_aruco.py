@@ -7,7 +7,7 @@ import yaml
 import numpy as np
 import rclpy
 from std_msgs.msg import Float32, Float32MultiArray
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import TransformStamped, Transform, Vector3
 from rclpy.node import Node
 from ament_index_python import get_package_share_directory
 
@@ -29,6 +29,7 @@ class VideoProcess:
             sys.exit()
 
         self.pose_pub = self.node.create_publisher(Float32MultiArray,"/marker_pose",10)
+        self.tf_pub = self.node.create_publisher(TransformStamped,"/pose_updates",10)
         
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_100)
         self.detect_params = cv2.aruco.DetectorParameters()
@@ -53,7 +54,7 @@ class VideoProcess:
         self.follow_target = follow_target # robot ID
 
         # List of valid tag IDs (all tag IDs which map to the follow target id)
-        self.valid_ids = [k for k,v in self.known_ids.items() if v < self.follow_target]
+        self.valid_ids = [k for k,v in self.known_ids.items() if v == self.follow_target]
 
         self.camMatrix = RS_INTRINSIC_COLOR_640
         self.distCoeffs = RS_DIST_COLOR_640
@@ -67,7 +68,7 @@ class VideoProcess:
 
         corners, ids, rejected = self.detector.detectMarkers(frame)
 
-        img_clone = frame
+        img_clone = frame.copy()
         has_found_tag = False
 
         if len(corners) < 1:
@@ -92,20 +93,26 @@ class VideoProcess:
             robot_id = ids[i].squeeze() # ID of robot, given tag
             print(f"Known ids: {ids}")
             if robot_id in self.known_ids: 
+                t = Transform()
                 name = self.known_ids[robot_id]
-                pose_diffs[name] = [rvecs,tvecs]
+                t.translation.x = tvecs[0,0]
+                t.translation.y = tvecs[1,0]
+                t.translation.z = tvecs[2,0]
+                pose_diffs[name] = t
 
         msg = Float32MultiArray()
         unwrapped_tvecs = [tvecs[0,0],tvecs[1,0],tvecs[2,0]]
         print(unwrapped_tvecs)
         msg.data = unwrapped_tvecs
-
-        # Publish pose difference
-        t = TransformStamped()
-        t.header.frame_id = self.name # our name
-        t.child_frame_id = self.robot_names[self.follow_target] # our target's name
-
         self.pose_pub.publish(msg)
+
+        for name,transform in pose_diffs.items():
+            # Publish pose difference
+            ts = TransformStamped()
+            ts.header.frame_id = self.name # our name
+            ts.child_frame_id = name # our target's name
+            ts.transform = transform
+            self.tf_pub.publish(ts)
 
         #print(f"self use gui: {self.use_gui}")
         if self.use_gui:

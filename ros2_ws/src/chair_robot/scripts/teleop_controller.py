@@ -125,20 +125,20 @@ class TeleopController(Node):
         Controls robot movement
 
         Args:
-            linear (float): linear velocity in the x direction to
+            linear (float): linear velocity in the z direction to
             publish to /cmd_vel, in m/s
-            angular (float): angular velocity about z axis to
+            angular (float): angular velocity about y axis to
             publish to /cmd_vel, in rad/s
         """
 
         twist = Twist()
-        twist.linear.x = linear
+        twist.linear.x = 0.0
         twist.linear.y = 0.0
-        twist.linear.z = 0.0
+        twist.linear.z = linear
 
         twist.angular.x = 0.0
-        twist.angular.y = 0.0
-        twist.angular.z = angular
+        twist.angular.y = angular
+        twist.angular.z = 0.0
 
         self.vel_pub.publish(twist)
 
