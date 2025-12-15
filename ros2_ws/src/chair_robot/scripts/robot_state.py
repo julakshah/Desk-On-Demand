@@ -29,6 +29,15 @@ class RobotState(Node):
         # Are we the leader or follower robot?
         self.declare_parameter("is_trashcan",True)
         self.is_trashcan = self.get_parameter("is_trashcan").get_parameter_value().bool_value
+        self.is_trashcan = False
+
+        # Who (what id) are we following?
+        self.declare_parameter("follow_id",-1)
+        self.follow_id = self.get_parameter("follow_id").get_parameter_value().integer_value
+
+        # get video device from param
+        self.declare_parameter("device",4)
+        self.channel = self.get_parameter("device").get_parameter_value().integer_value
 
         if self.is_trashcan:
             self.leader_reached_target_pub = self.create_publisher(Bool,"/leader_reached_target",10)
@@ -50,7 +59,7 @@ class RobotState(Node):
             self.target_to_world = FrameUpdater(node=self,follow_target=-1,parent="target",child="world",id=-1)
         
         # Create video processing node
-        self.vid_process = VideoProcess(node=self,use_gui=False,channel=channel,follow_target=-1,name=self.name)
+        self.vid_process = VideoProcess(node=self,use_gui=False,channel=self.channel,follow_target=-1,name=self.name)
 
         # Set pins for motor control
         self.motor1 = PWMLED(20) #right one (for now)
@@ -87,7 +96,7 @@ class RobotState(Node):
         self.prev_err_angle = 0.0
         self.err_list_angle = []
 
-        self.kP_lin = 0.1
+        self.kP_lin = 0.2
         self.kI_lin = 0.0
         self.kD_lin = 0.0
         self.prev_err_lin = 0.0
@@ -214,7 +223,7 @@ class RobotState(Node):
             print("too close! correcting")
         print(f"Getting: {translation.x}, {translation.z}")
 
-        angle_err = np.arctan2(translation.x,translation.z)
+        angle_err = np.arctan2(translation.x,translation.z) * -1
         linear_err = np.sqrt(translation.x**2 + translation.z**2) - self.follow_distance
         err_queue_size = 20
 
@@ -284,7 +293,7 @@ class RobotState(Node):
             self.m2low.off()
             self.m2high.on()
             self.motor2.value = m2
-            print(f"M2 low on, M2 high off, value {m1}")
+            print(f"M2 low on, M2 high off, value {m2}")
 
     def process_twist(self, msg: Twist):
         # Change for actual units / something parameterizable
