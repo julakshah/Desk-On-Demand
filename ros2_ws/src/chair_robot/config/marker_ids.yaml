@@ -1,11 +1,11 @@
 ids:
     10:  -1 
-    11: 1
-    12: 2
+    11: 0
+    12: 1
 names:
     -1: "target"
+    0: "robot0"
     1: "robot1"
-    2: "robot2"
 transforms: 
     # organized as parent:child 
     # (i.e. robot1: camera: T is transform w/ robot1 parent and camera child)
