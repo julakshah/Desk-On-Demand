@@ -17,11 +17,14 @@ from geometry_msgs.msg import Twist
 from gpiozero import PWMLED, LED
 
 class RobotState(Node):
-    def __init__(self, use_lidar=False, follow_id=-1, channel=0):
+    def __init__(self, use_lidar=False, follow_id=-1, channel=0, id=0):
         super().__init__("robot_state",namespace="robot0")
         self.timer = self.create_timer(0.01,self.main_loop)
         self.name = "robot0"
-        self.id = 0
+
+        self.declare_parameter("id",0)
+        self.id = self.get_parameter("id").get_parameter_value().integer_value
+
         self.follow_id = follow_id # id of robot; person target has id -1 
         self.has_lidar = use_lidar
         self.teleop_sub = self.create_subscription(Int32,"/use_teleop",self.use_teleop_callback,10)

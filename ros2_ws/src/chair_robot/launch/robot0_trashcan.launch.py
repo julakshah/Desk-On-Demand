@@ -16,7 +16,8 @@ def launch_setup(context):
             parameters=[
                 {"device":video_device},
                 {"is_trashcan":True},
-                {"follow_id":-1}
+                {"follow_id":-1},
+                {"id":0}
             ]
         ),
         Node(
