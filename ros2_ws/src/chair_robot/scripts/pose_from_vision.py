@@ -122,7 +122,7 @@ class PoseFromVision(Node):
 
     def setup(self):
         # setup video capture
-        cap = self.create_cap(self.channel)
+        cap = self.create_cap(0)
     
         # mediapipe
         def save_result(result: vision.PoseLandmarkerResult,
