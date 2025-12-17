@@ -30,8 +30,9 @@ class TeleopController(Node):
 
     def __init__(self):
         super().__init__('teleop_node')
-        self.teleop_pub = self.create_publisher(Int32, 'use_teleop', 10)
-        self.vel_pub  = self.create_publisher(Twist, "/robot0/cmd_vel", 10)
+        self.teleop_pub = self.create_publisher(Int32, '/use_teleop', 10)
+        self.vel_pub_0  = self.create_publisher(Twist, "/robot0/cmd_vel", 10)
+        self.vel_pub_1  = self.create_publisher(Twist, "/robot1/cmd_vel", 10)
         self.create_timer(0.01,self.run_loop)
         self.create_timer(0.01,self.hb_loop)
         self.is_publishing = True
@@ -87,7 +88,7 @@ class TeleopController(Node):
         if key == ' ':
             print("Swapping to manual control")
             msg = Int32()
-            msg.data = True
+            msg.data = 999
             self.teleop_pub.publish(msg)
             self.is_publishing = True
             self.drive()
@@ -168,7 +169,8 @@ class TeleopController(Node):
         twist.angular.y = angular
         twist.angular.z = 0.0
 
-        self.vel_pub.publish(twist)
+        self.vel_pub_0.publish(twist)
+        self.vel_pub_1.publish(twist)
 
     def get_key(self):
         """
