@@ -56,6 +56,7 @@ class PoseFromVision(Node):
         self.detect()
 
     def detect(self):
+        self.detector.detect_async(mp_image, time.time_ns() // 1_000_000)
         while self.cap.isOpened():
             # flush buffer --- we want to make sure we grab a recent frame
             for _ in range(3):
@@ -81,14 +82,13 @@ class PoseFromVision(Node):
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
 
-            self.detector.detect_async(mp_image, time.time_ns() // 1_000_000)
             print(f"FPS is: {FPS}")
             current_frame = image
 
             if self.cv_result.pose_landmarks != []:
+                #left and right hip int vals
                 a = 24
                 b = 23
-                ### debugging
                 x1 = self.cv_result.pose_landmarks[0][a].x
                 y1 = self.cv_result.pose_landmarks[0][a].y
                 x2 = self.cv_result.pose_landmarks[0][b].x
@@ -100,7 +100,7 @@ class PoseFromVision(Node):
                 #See: https://medium.com/@susanne.thierfelder/create-your-own-depth-measuring-tool-with-mediapipe-facemesh-in-javascript-ae90abae2362
                 # depth = real-world-val * focal / measured-pxl-width
                 z = FOCAL_LENGTH * AV_WIDTH / hip_distance
-                print(f"depth={z}\n")
+                #print(f"depth={z}\n")
                 #take the average of the hip positions
                 r23 = self.cv_result.pose_world_landmarks[0][a]
                 r24 = self.cv_result.pose_world_landmarks[0][b]
@@ -147,6 +147,11 @@ class PoseFromVision(Node):
     
         return detector, cap
 
+        print(f"cv_resuilt is: self.cv_result")
+        # draw the landmarks on the page for visualization
+        landmarked_frame = draw_landmarks_on_image(frame, self.cv_result)
+        cv2.imshow("frame", landmarked_frame)
+
 
     def create_cap(self, attempt):
         """
@@ -155,7 +160,6 @@ class PoseFromVision(Node):
         Args:
             attempt: an integer representing the current attempt
         """
-        print(f"self.channel: {self.channel}")
         cap = cv2.VideoCapture(self.channel)  # pylint: disable=no-member
         time.sleep(0.5)
         if cap.isOpened():
