@@ -9,6 +9,7 @@ from geometry_msgs.msg import TransformStamped, PoseStamped, Quaternion, TwistSt
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
+from rclpy.time import Time
 from std_msgs.msg import Int32, Float32MultiArray, Bool
 from transform_helper import FrameUpdater
 from pose_from_aruco import VideoProcess
@@ -29,7 +30,7 @@ class RobotState(Node):
         # Are we the leader or follower robot?
         self.declare_parameter("is_trashcan",True)
         self.is_trashcan = self.get_parameter("is_trashcan").get_parameter_value().bool_value
-        self.is_trashcan = False
+        #self.is_trashcan = False
 
         # Who (what id) are we following?
         self.declare_parameter("follow_id",-1)
@@ -59,7 +60,11 @@ class RobotState(Node):
             self.target_to_world = FrameUpdater(node=self,follow_target=-1,parent="target",child="world",id=-1)
         
         # Create video processing node
-        self.vid_process = VideoProcess(node=self,use_gui=False,channel=self.channel,follow_target=-1,name=self.name)
+        try:
+            self.vid_process = VideoProcess(node=self,use_gui=False,channel=self.channel,follow_target=-1,name=self.name)
+        except:
+            print("Failed to create camera process object")
+            self.vid_process = None
 
         # Set pins for motor control
         self.motor1 = PWMLED(20) #right one (for now)
@@ -135,6 +140,27 @@ class RobotState(Node):
 
     def main_loop(self):      
         print(f"\nbeginning main loop in state {self.state}\n")  
+        if self.latest_hb_time is not None:
+            hb_time = self.latest_hb_time
+            now = self.get_clock().now()
+            #duration = Duration(seconds=now.sec - hb_time.sec, nanoseconds=now.nanosec - hb_time.nanosec)
+            duration = now - hb_time
+            time_since_hb = duration.nanoseconds * 1e-9
+            print(f"Time since hb: {time_since_hb}\n\n")
+            print(f"Time since hb: {duration}\n\n")
+            if time_since_hb > 1.0:
+                print("\nNO HEARTBEAT!\n\n")
+                self.drive_raw(0.0,0.0)
+                self.state = "stop"
+                return
+
+        if self.vid_process is None:
+            print(f"No video process object!")
+            if self.state == "stop":
+                self.drive_raw(0.0,0.0)
+            if self.state in {"follow","hold","waypoint","search"}:
+                self.state = "stop"
+                return
         match (self.state):
             case "follow":
                 pose_updates = self.vid_process.process_frame()
@@ -149,7 +175,7 @@ class RobotState(Node):
                         rclpy.time.Time()
                     )
                     last_stamp = target_pos_tf.header.stamp
-                    now = self.get_clock().now().to_msg()
+                    now = self.get_clock().now()
                     if (now.sec + float(now.nanosec) * 1e-9) - (last_stamp.sec + float(last_stamp.nanosec) * 1e-9) > self.valid_transform_lifetime:
                         # last target tf is too old; we need to stop trying to follow it
                         self.state = "search"
@@ -229,9 +255,9 @@ class RobotState(Node):
         # If we're too close, stop
         # Y is our unused dimension (vertical) as we move in a plane
         last_time = self.last_PID_times
-        current_time = self.get_clock().now().to_msg()
+        current_time = self.get_clock().now()
         self.last_PID_times = current_time
-        duration = Duration(seconds=current_time.sec - last_time.sec, nanoseconds=current_time.nanosec - last_time.nanosec)
+        duration = current_time - last_time
         dt = duration.nanoseconds * 1e-9
         print(f"dt: {dt}")
 
@@ -276,10 +302,10 @@ class RobotState(Node):
             m1 = 0.0
             m2 = 0.0
         else:
-            hb_time = self.latest_hb_time[0] + float(self.latest_hb_time[1]) * 1e-9
-            now = self.get_clock().now().seconds_nanoseconds()
-            now_time = now[0] + float(now[1]) * 1e-9
-            time_since_hb = now_time - hb_time
+            hb_time = self.latest_hb_time
+            now = self.get_clock().now()
+            duration = now - hb_time
+            time_since_hb = duration.nanoseconds * 1e-9
             #print(f"Time since heartbeat: {time_since_hb}")
             if time_since_hb > 1.0:
                 m1 = 0.0
@@ -321,7 +347,7 @@ class RobotState(Node):
             self.drive_raw(lin + ang, lin - ang)
 
     def heartbeat_callback(self, msg: Bool):
-        self.latest_hb_time = self.get_clock().now().seconds_nanoseconds()
+        self.latest_hb_time = self.get_clock().now()
 
     def use_teleop_callback(self,msg):
         # Update state --- -1 is auto, teleop if equal to my id, stop if not
