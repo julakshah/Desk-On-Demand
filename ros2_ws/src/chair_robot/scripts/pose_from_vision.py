@@ -1,90 +1,152 @@
 #!/usr/bin/env python3
 
-import cv2 
 import sys
-import os
-import yaml
 import time
+import os
+import cv2
+import mediapipe as mp
 import numpy as np
+
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+from mediapipe.framework.formats import landmark_pb2
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Float32MultiArray
 from geometry_msgs.msg import TransformStamped
-import queue
-from pose_from_aruco import VideoProcess
-import mediapipe as mp
-from mediapipe import solutions
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
-from mediapipe.framework.formats import landmark_pb2
 from ament_index_python import get_package_share_directory
+from rclpy.executors import MultiThreadedExecutor
 
-model_path = '/absolute/path/to/pose_landmarker.task'
+
+share_dir = get_package_share_directory("chair_robot")
+model_path = os.path.join(share_dir,"config","pose_landmarker_lite.task")
 
 # Parameters for Realsense Color channel, 
-RS_INTRINSIC_COLOR_640 = np.array([
-    [615.21,0,310.90],[0,614.45,243.97],[0,0,1]
-])
+mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
 
-RS_DIST_COLOR_640 = np.array([0,0,0,0,0])
+# Global variables to calculate FPS
+COUNTER, FPS = 0, 0
+START_TIME = time.time()
+fps_avg_frame_count = 10
 
-# CV options
-BaseOptions = mp.tasks.BaseOptions
-PoseLandmarker = mp.tasks.vision.PoseLandmarker
-PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
-PoseLandmarkerResult = mp.tasks.vision.PoseLandmarkerResult
-VisionRunningMode = mp.tasks.vision.RunningMode
+FOCAL_LENGTH = 582
+AV_WIDTH = 36 # cm
 
 class PoseFromVision(Node):
     
     def __init__(self,channel):
         super().__init__('pose_from_vision')
 
-        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_100)
-        self.detect_params = cv2.aruco.DetectorParameters()
-        self.detector = cv2.aruco.ArucoDetector(self.aruco_dict,detectorParams=self.detect_params)
+        #topic to publish the pose to track 
+        self.pose_topic = self.create_publisher(TransformStamped,"/pose_updates", 10)
 
         self.channel = channel
 
-        self.camMatrix = RS_INTRINSIC_COLOR_640
-        self.distCoeffs = RS_DIST_COLOR_640
-
         # mediapipe landmarker
         self.cv_result = mp.tasks.vision.PoseLandmarkerResult(pose_landmarks=[], pose_world_landmarks=[], segmentation_masks=[])
-        self.landmarker = mp.tasks.vision.PoseLandmarker
-        self.create_landmarker()
-        self.cap = self.create_cap(attempt=0)
+        detector, cap = self.setup()
+        self.detector = detector
+        self.cap = cap
 
         # For testing
-        self.timer = self.create_timer(0.01, self.detect)
+        #self.timer = self.create_timer(0.01, self.detect)
+        self.detect()
 
     def detect(self):
-        # flush buffer --- we want to make sure we grab a recent frame
-        for _ in range(3):
-            self.cap.grab()
+        while self.cap.isOpened():
+            # flush buffer --- we want to make sure we grab a recent frame
+            for _ in range(3):
+                self.cap.grab()
 
-        # pull frame from cv2
-        ret, frame = self.cap.read()
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            del(self)
+            # pull frame from cv2
+            ret, frame = self.cap.read()
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                del(self)
+            
+            #frame = cv2.flip(frame, 1)  # pylint: disable=no-member
+            if not ret:
+                print("failed to get frame")
+                return
+
+            # draw the landmarks on the page for visualization
+            landmarked_frame = self.draw_landmarks_on_image(frame, self.cv_result)
+
+            success, image = self.cap.read()
+            image = cv2.flip(image,1)
+
+            # Convert the image from BGR to RGB as required by the TFLite model.
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
+
+            self.detector.detect_async(mp_image, time.time_ns() // 1_000_000)
+            print(f"FPS is: {FPS}")
+            current_frame = image
+
+            if self.cv_result.pose_landmarks != []:
+                a = 24
+                b = 23
+                ### debugging
+                x1 = self.cv_result.pose_landmarks[0][a].x
+                y1 = self.cv_result.pose_landmarks[0][a].y
+                x2 = self.cv_result.pose_landmarks[0][b].x
+                y2 = self.cv_result.pose_landmarks[0][b].y
+                p1 = np.array([x1, y1])
+                p2 = np.array([x2, y2])
+                hip_distance = np.linalg.norm([p1 - p2])
+
+                #See: https://medium.com/@susanne.thierfelder/create-your-own-depth-measuring-tool-with-mediapipe-facemesh-in-javascript-ae90abae2362
+                # depth = real-world-val * focal / measured-pxl-width
+                z = FOCAL_LENGTH * AV_WIDTH / hip_distance
+                print(f"depth={z}\n")
+                #take the average of the hip positions
+                r23 = self.cv_result.pose_world_landmarks[0][a]
+                r24 = self.cv_result.pose_world_landmarks[0][b]
+                x = (r23.x + r24.x)/2
+                y = (r23.y + r24.y)/2
+                #send the message on topic
+                msg = TransformStamped()
+                msg.transform.translation.x = x
+                msg.transform.translation.y = y
+                msg.transform.translation.z = z
+                self.pose_topic.publish(msg)
+                #print(f"{self.cv_result.pose_world_landmarks[0][22]}")
+            cv2.imshow('pose_landmarker', current_frame)
+            cv2.waitKey(1)
+
+    def setup(self):
+        # setup video capture
+        cap = self.create_cap(self.channel)
+    
+        # mediapipe
+        def save_result(result: vision.PoseLandmarkerResult,
+                            unused_output_image: mp.Image, timestamp_ms: int):
+                global FPS, COUNTER, START_TIME
         
-        frame = cv2.flip(frame, 1)  # pylint: disable=no-member
-        if not ret:
-            print("failed to get frame")
-            return
-        #print(f"Frame shape: {frame.shape}")
+                # Calculate the FPS
+                if COUNTER % fps_avg_frame_count == 0:
+                    FPS = fps_avg_frame_count / (time.time() - START_TIME)
+                    START_TIME = time.time()
+        
+                self.cv_result = result
+                COUNTER += 1
+    
+        base_options = python.BaseOptions(model_asset_path=model_path)
+        options = vision.PoseLandmarkerOptions(
+            base_options=base_options,
+            running_mode=vision.RunningMode.LIVE_STREAM,
+            num_poses=1,
+            min_pose_detection_confidence=.4,
+            min_pose_presence_confidence=.4,
+            min_tracking_confidence=.4,
+            output_segmentation_masks=False,
+            result_callback=save_result)
+        detector = vision.PoseLandmarker.create_from_options(options)
+    
+        return detector, cap
 
-        # draw the landmarks on the page for visualization
-        landmarked_frame = draw_landmarks_on_image(frame, self.cv_result)
-        #print(f"Type of landmarked image: {type(landmarked_frame)}")
-        #print(f"Landmarked frame shape: {landmarked_frame.shape}")
-        cv2.imshow("frame", landmarked_frame)
-        if frame is not None:
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-            # detect landmarks
-            self.landmarker.detect_async(
-                image=mp_image, timestamp_ms=int(time.time() * 1000)
-            )
 
     def create_cap(self, attempt):
         """
@@ -108,67 +170,22 @@ class PoseFromVision(Node):
             print("video capture open failed, please restart")
             self.create_cap(attempt=attempt + 1)
 
-
-    def create_landmarker(self):
-        """
-        Initializes the mediapipe landmarker object from the pose landmarker.task
-        in livestream mode.
-
-        Parameters resource
-        https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/python#configuration_options
-        """
-        share_dir = get_package_share_directory("chair_robot")
-        config_path = os.path.join(share_dir,"config","pose_landmarker_lite.task")
-
-        # callback function to grab latest cv result
-        def update_result(
-            result: mp.tasks.vision.HandLandmarkerResult,  # type: ignore
-            output_image: mp.Image,  # pylint: disable=unused-argument
-            timestamp_ms: int,  # pylint: disable=unused-argument
-        ):
-            self.cv_result = result
-
-        options = mp.tasks.vision.PoseLandmarkerOptions(
-            base_options=mp.tasks.BaseOptions(
-                model_asset_path=config_path
-            ),  # path to model
-            running_mode=VisionRunningMode.LIVE_STREAM,  # running live stream
-            min_pose_detection_confidence=0.5,
-            min_pose_presence_confidence=0.5,
-            min_tracking_confidence=0.5,
-            result_callback=update_result,
-        )
-
-        # initialize landmarker from options
-        self.landmarker = self.landmarker.create_from_options(options)
-
-
-def draw_landmarks_on_image(rgb_image, detection_result):
-    pose_landmarks_list = detection_result.pose_landmarks
-    annotated_image = np.copy(rgb_image)
-    #print(f"Annotated image at start of draw landmarks on image: {type(annotated_image)}")
-
-    # Loop through the detected poses to visualize.
-    pose_landmarks = []
-    # Check for empty pose list
-    if len(pose_landmarks_list) == 0:
-        return annotated_image
-
-    for idx in range(len(pose_landmarks_list)):
-        pose_landmarks += pose_landmarks_list[idx]
+    def draw_landmarks_on_image(self, rgb_image, detection_result):
+        for pose_landmarks in self.cv_result.pose_landmarks:
+            # Draw the pose landmarks.
+            pose_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+            pose_landmarks_proto.landmark.extend([
+                landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y,
+                                                z=landmark.z) for landmark
+                in pose_landmarks
+            ])
+            mp_drawing.draw_landmarks(
+                rgb_image,
+                pose_landmarks_proto,
+                mp_pose.POSE_CONNECTIONS,
+                mp_drawing_styles.get_default_pose_landmarks_style())
     
-    # Draw the pose landmarks.
-    pose_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
-    pose_landmarks_proto.landmark.extend([
-        landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in pose_landmarks
-    ])
-    solutions.drawing_utils.draw_landmarks(
-        annotated_image,
-        pose_landmarks_proto,
-        solutions.pose.POSE_CONNECTIONS,
-        solutions.drawing_styles.get_default_pose_landmarks_style())
-    #print(f"Type of annotated image at end of draw landmarks on image: {type(annotated_image)}")
-    return annotated_image
+        return rgb_image
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -177,5 +194,8 @@ if __name__ == '__main__':
         channel = int(sys.argv[1])
     rclpy.init()
     pose_from_vision = PoseFromVision(channel=channel)
-    rclpy.spin(pose_from_vision)
-    rclpy.shutdown()
+    executor = MultiThreadedExecutor(num_threads=4)
+    executor.add_node(pose_from_vision)
+    executor.spin
+    #rclpy.spin(pose_from_vision)
+    #rclpy.shutdown()

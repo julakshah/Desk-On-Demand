@@ -19,6 +19,9 @@ START_TIME = time.time()
 DETECTION_RESULT = None
 fps_avg_frame_count = 10
 
+FOCAL_LENGTH = 582
+AV_WIDTH = 36 # cm
+
     
 def setup():
     # setup video capture
@@ -66,7 +69,23 @@ def main():
         print(f"FPS is: {FPS}")
         current_frame = image
 
-        if DETECTION_RESULT:
+        if DETECTION_RESULT and DETECTION_RESULT.pose_landmarks != []:
+            ### debugging
+            x1 = DETECTION_RESULT.pose_landmarks[0][23].x
+            y1 = DETECTION_RESULT.pose_landmarks[0][23].y
+            x2 = DETECTION_RESULT.pose_landmarks[0][24].x
+            y2 = DETECTION_RESULT.pose_landmarks[0][24].y
+            p1 = np.array([x1, y1])
+            p2 = np.array([x2, y2])
+            hip_distance = np.linalg.norm([p1 - p2])
+
+            #See: https://medium.com/@susanne.thierfelder/create-your-own-depth-measuring-tool-with-mediapipe-facemesh-in-javascript-ae90abae2362
+            # depth = real-world-val * focal / measured-pxl-width
+            depth = FOCAL_LENGTH * AV_WIDTH / hip_distance
+
+
+            print(f"depth={depth}\n")
+            ###
             # Draw landmarks.
             for pose_landmarks in DETECTION_RESULT.pose_landmarks:
                 # Draw the pose landmarks.
@@ -81,7 +100,12 @@ def main():
                     pose_landmarks_proto,
                     mp_pose.POSE_CONNECTIONS,
                     mp_drawing_styles.get_default_pose_landmarks_style())
+
         cv2.imshow('pose_landmarker', current_frame)
+        cv2.waitKey(1)
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
