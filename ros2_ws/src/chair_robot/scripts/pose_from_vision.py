@@ -6,6 +6,7 @@ import os
 import cv2
 import mediapipe as mp
 import numpy as np
+import threading
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -45,25 +46,54 @@ class PoseFromVision(Node):
 
         self.channel = channel
 
-        # mediapipe landmarker
         self.cv_result = mp.tasks.vision.PoseLandmarkerResult(pose_landmarks=[], pose_world_landmarks=[], segmentation_masks=[])
-        detector, cap = self.setup()
-        self.detector = detector
-        self.cap = cap
 
         # For testing
-        #self.timer = self.create_timer(0.01, self.detect)
-        self.detect()
+        self.timer = self.create_timer(0.05, self.publish_pose)
 
-    def detect(self):
-        self.detector.detect_async(mp_image, time.time_ns() // 1_000_000)
-        while self.cap.isOpened():
+    def publish_pose(self):
+        print("running node")
+        if self.cv_result.pose_landmarks != []:
+            #left and right hip int vals
+            a = 24
+            b = 23
+            x1 = self.cv_result.pose_landmarks[0][a].x
+            y1 = self.cv_result.pose_landmarks[0][a].y
+            x2 = self.cv_result.pose_landmarks[0][b].x
+            y2 = self.cv_result.pose_landmarks[0][b].y
+            p1 = np.array([x1, y1])
+            p2 = np.array([x2, y2])
+            hip_distance = np.linalg.norm([p1 - p2])
+
+            #See: https://medium.com/@susanne.thierfelder/create-your-own-depth-measuring-tool-with-mediapipe-facemesh-in-javascript-ae90abae2362
+            # depth = real-world-val * focal / measured-pxl-width
+            z = FOCAL_LENGTH * AV_WIDTH / hip_distance
+            #print(f"depth={z}\n")
+            #take the average of the hip positions
+            r23 = self.cv_result.pose_world_landmarks[0][a]
+            r24 = self.cv_result.pose_world_landmarks[0][b]
+            x = (r23.x + r24.x)/2
+            y = (r23.y + r24.y)/2
+            #send the message on topic
+            msg = TransformStamped()
+            msg.transform.translation.x = x
+            msg.transform.translation.y = y
+            msg.transform.translation.z = z
+            self.pose_topic.publish(msg)
+            #print(f"{self.cv_result.pose_world_landmarks[0][22]}")
+
+    def mp_run(self):
+        # mediapipe landmarker
+        detector, cap = self.setup()
+        
+        while cap.isOpened():
+            print("running thread")
             # flush buffer --- we want to make sure we grab a recent frame
             for _ in range(3):
-                self.cap.grab()
+                cap.grab()
 
             # pull frame from cv2
-            ret, frame = self.cap.read()
+            ret, frame = cap.read()
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 del(self)
             
@@ -75,46 +105,20 @@ class PoseFromVision(Node):
             # draw the landmarks on the page for visualization
             landmarked_frame = self.draw_landmarks_on_image(frame, self.cv_result)
 
-            success, image = self.cap.read()
+            success, image = cap.read()
             image = cv2.flip(image,1)
 
             # Convert the image from BGR to RGB as required by the TFLite model.
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
+            detector.detect_async(mp_image, time.time_ns() // 1_000_000)
 
             print(f"FPS is: {FPS}")
             current_frame = image
 
-            if self.cv_result.pose_landmarks != []:
-                #left and right hip int vals
-                a = 24
-                b = 23
-                x1 = self.cv_result.pose_landmarks[0][a].x
-                y1 = self.cv_result.pose_landmarks[0][a].y
-                x2 = self.cv_result.pose_landmarks[0][b].x
-                y2 = self.cv_result.pose_landmarks[0][b].y
-                p1 = np.array([x1, y1])
-                p2 = np.array([x2, y2])
-                hip_distance = np.linalg.norm([p1 - p2])
-
-                #See: https://medium.com/@susanne.thierfelder/create-your-own-depth-measuring-tool-with-mediapipe-facemesh-in-javascript-ae90abae2362
-                # depth = real-world-val * focal / measured-pxl-width
-                z = FOCAL_LENGTH * AV_WIDTH / hip_distance
-                #print(f"depth={z}\n")
-                #take the average of the hip positions
-                r23 = self.cv_result.pose_world_landmarks[0][a]
-                r24 = self.cv_result.pose_world_landmarks[0][b]
-                x = (r23.x + r24.x)/2
-                y = (r23.y + r24.y)/2
-                #send the message on topic
-                msg = TransformStamped()
-                msg.transform.translation.x = x
-                msg.transform.translation.y = y
-                msg.transform.translation.z = z
-                self.pose_topic.publish(msg)
-                #print(f"{self.cv_result.pose_world_landmarks[0][22]}")
             cv2.imshow('pose_landmarker', current_frame)
             cv2.waitKey(1)
+
 
     def setup(self):
         # setup video capture
@@ -198,8 +202,7 @@ if __name__ == '__main__':
         channel = int(sys.argv[1])
     rclpy.init()
     pose_from_vision = PoseFromVision(channel=channel)
-    executor = MultiThreadedExecutor(num_threads=4)
-    executor.add_node(pose_from_vision)
-    executor.spin
-    #rclpy.spin(pose_from_vision)
-    #rclpy.shutdown()
+    mp_thread = threading.Thread(target=pose_from_vision.mp_run, daemon=True)
+    mp_thread.start()
+    rclpy.spin(pose_from_vision)
+    rclpy.shutdown()
