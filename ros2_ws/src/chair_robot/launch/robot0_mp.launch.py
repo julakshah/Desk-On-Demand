@@ -29,7 +29,10 @@ def launch_setup(context):
         Node(
             package='chair_robot',
             executable='pose_from_vision.py',
-            name='mp_process'
+            name='mp_process',
+            parameters=[
+                {"channel":4}
+            ]
         )
     ]
     

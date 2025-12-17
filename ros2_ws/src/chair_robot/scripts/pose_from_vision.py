@@ -39,11 +39,12 @@ class PoseFromVision(Node):
     
     def __init__(self,channel):
         super().__init__('pose_from_vision')
+        self.declare_parameter("channel",4)
 
         #topic to publish the pose to track 
         self.pose_topic = self.create_publisher(TransformStamped,"/pose_updates", 10)
 
-        self.channel = channel
+        self.channel = self.get_parameter("channel").get_parameter_value().integer_value
 
         # mediapipe landmarker
         self.cv_result = mp.tasks.vision.PoseLandmarkerResult(pose_landmarks=[], pose_world_landmarks=[], segmentation_masks=[])
@@ -193,7 +194,7 @@ class PoseFromVision(Node):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        channel = 0
+        channel = 4
     else:
         channel = int(sys.argv[1])
     rclpy.init()
