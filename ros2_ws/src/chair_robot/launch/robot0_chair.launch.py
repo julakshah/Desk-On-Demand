@@ -17,13 +17,22 @@ def launch_setup(context):
                 {"device":video_device},
                 {"is_trashcan":False},
                 {"follow_id":-1},
-                {"id":0}
-            ]
+                {"id":0},
+                {"kP_lin":0.4}
+            ],
+            output={
+                'stdout': 'screen',
+                'stderr': 'screen',
+            }
         ),
         Node(
             package='chair_robot',
             executable='transform_helper.py',
             name='static_broadcast',
+            #output={
+            #    'stdout': 'screen',
+            #    'stderr': 'screen',
+            #}
         )
     ]
     

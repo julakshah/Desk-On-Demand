@@ -19,11 +19,11 @@ from gpiozero import PWMLED, LED
 
 class RobotState(Node):
     def __init__(self, use_lidar=False, follow_id=-1, channel=0, id=0):
-        super().__init__("robot_state",namespace="robot0") # hardcode
+        super().__init__("robot_state",namespace="robot1") # hardcode
         self.timer = self.create_timer(0.01,self.main_loop)
-        self.name = "robot0" # hardcode
+        self.name = "robot1" # hardcode
 
-        self.declare_parameter("id",0)
+        self.declare_parameter("id",1)
         self.id = self.get_parameter("id").get_parameter_value().integer_value
 
         self.follow_id = follow_id # id of robot; person target has id -1 
@@ -43,7 +43,7 @@ class RobotState(Node):
         #self.is_trashcan = False
 
         # Who (what id) are we following?
-        self.declare_parameter("follow_id",-1)
+        self.declare_parameter("follow_id",0)
         self.follow_id = self.get_parameter("follow_id").get_parameter_value().integer_value
 
         # get video device from param
@@ -106,7 +106,7 @@ class RobotState(Node):
         self.teleop_state = 0 # id of robot controlled by teleop
         self.reorient_flag = True
 
-        self.declare_parameter("kP_angle",1.0)
+        self.declare_parameter("kP_angle",0.5)
         self.kP_angle = self.get_parameter("kP_angle").get_parameter_value().double_value
         self.declare_parameter("kI_angle",0.0)
         self.kI_angle = self.get_parameter("kI_angle").get_parameter_value().double_value
@@ -120,7 +120,7 @@ class RobotState(Node):
         self.declare_parameter("kD_lin",0.0)
         self.kD_lin = self.get_parameter("kD_lin").get_parameter_value().double_value
 
-        self.declare_parameter("speed_control",0.6)
+        self.declare_parameter("speed_control",1.0)
         self.speed_control = self.get_parameter("speed_control").get_parameter_value().double_value
 
         self.prev_err_angle = 0.0
@@ -191,6 +191,8 @@ class RobotState(Node):
         if not self.use_mp:
             if self.vid_process is None:
                 print(f"No video process object!")
+                if self.state == "stop":
+                    self.drive_raw(0.0,0.0)
                 if self.state in {"follow","hold","waypoint","search"}:
                     self.state = "stop"
                     return
@@ -212,9 +214,9 @@ class RobotState(Node):
                     now = self.get_clock().now()
                     if (now - last_stamp).nanoseconds * 1e-9 > self.valid_transform_lifetime:
                         # last target tf is too old; we need to stop trying to follow it
-                        self.state = "search"
                         print(f"\nLost target! Beginning search\n")
-                        #self.drive_raw(0.0,0.0)
+                        self.drive_raw(0.0,0.0)
+                        self.state = "search"
                         return
                 except Exception as e:
                     print(f"Except when getting target pose tf in main loop: {e}")
@@ -305,7 +307,6 @@ class RobotState(Node):
 
         ANGLE_ERR_SCALE = 1
         angle_err = np.arctan2(translation.x,translation.z) * 1 * ANGLE_ERR_SCALE
-
         self.prev_err_angle = angle_err
         linear_err = np.sqrt(translation.x**2 + translation.z**2) - self.follow_distance
         self.prev_err_lin = linear_err

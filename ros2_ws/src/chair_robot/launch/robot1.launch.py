@@ -17,8 +17,13 @@ def launch_setup(context):
                 {"device":video_device},
                 {"is_trashcan":True},
                 {"follow_id":0},
-                {"id":1}
-            ]
+                {"id":1},
+                {"kP_lin":0.5}
+            ],
+            output={
+                'stdout': 'screen',
+                'stderr': 'screen',
+            }
         )
     ]
     

@@ -17,13 +17,19 @@ def launch_setup(context):
                 {"device":video_device},
                 {"is_trashcan":False},
                 {"follow_id":-1},
-                {"id":0}
+                {"id":0},
+                {"use_mp":True}
             ]
         ),
         Node(
             package='chair_robot',
             executable='transform_helper.py',
             name='static_broadcast',
+        ),
+        Node(
+            package='chair_robot',
+            executable='pose_from_vision.py',
+            name='mp_process'
         )
     ]
     

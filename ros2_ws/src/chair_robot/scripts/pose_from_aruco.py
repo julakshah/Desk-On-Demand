@@ -116,7 +116,7 @@ class VideoProcess:
             ts.header.frame_id = self.name # our name
             ts.child_frame_id = name # our target's name
             ts.transform = transform
-            print(f"Transform to publish: {ts.transform}\n")
+            print(f"Transform to publish: {ts}\n")
             self.tf_pub.publish(ts)
 
         #print(f"self use gui: {self.use_gui}")

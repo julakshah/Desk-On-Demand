@@ -39,7 +39,7 @@ class StaticFrameBroadcaster(Node):
         # For now, we have no global world --> target can be aligned with it always
         # would have to change if we had some global world
         tf_target = TransformStamped()
-        tf_target.child_frame_id = "target"
+        tf_target.child_frame_id = "robot0"
         tf_target.header.frame_id = "world"
         tf_target.header.stamp = self.get_clock().now().to_msg()
         target_broadcast = StaticTransformBroadcaster(self)
