@@ -1,16 +1,20 @@
 import withMDX from "@next/mdx";
 
-/** @type {import('next').NextConfig} */
+const repoName = "desk-on-demand";
+const isProd = process.env.NODE_ENV === "production";
+
 const nextConfig = {
-  reactCompiler: true,
-  pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"], // include MDX files
-  experimental: {
-    appDir: true, // App Router support
+  reactStrictMode: true,
+  pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"],
+  output: "export", // static export
+  basePath: isProd ? `/${repoName}` : "",
+  assetPrefix: isProd ? `/${repoName}/` : "",
+  images: {
+    unoptimized: true, // Required for static export
   },
-  output: "export", // enable static export for GitHub Pages
 };
 
-// Wrap the config with MDX support
+// Wrap with MDX support
 export default withMDX({
   extension: /\.mdx?$/,
   options: {
