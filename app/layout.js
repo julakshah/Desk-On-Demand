@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Inconsolata } from "next/font/google";
+import TopBar from "./components/topbar/TopBar.js";
 
 const inconsolata = Inconsolata({
   subsets: ["latin"],
@@ -12,7 +13,10 @@ export default function RootLayout({ children }) {
       <head>
         <title>Desk On Demand</title>
       </head>
-      <body>{children}</body>
+      <body className={inconsolata.className}>
+        <TopBar />
+        <main className="container">{children}</main>
+      </body>
     </html>
   );
 }

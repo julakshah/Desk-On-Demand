@@ -1,0 +1,44 @@
+.topbar {
+  width: 100%;
+  position: sticky;
+  top: 0;
+  background-color: #242424;
+  color: #fff;
+  padding: 0.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 999; /* higher than other content */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Icon container */
+.topbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Font Awesome chair icon */
+.chair-icon {
+  color: #fff; /* white */
+  font-size: 2rem; /* make sure it's visible */
+}
+
+.chair-icon:hover {
+  color: #aaa; /* hover effect */
+}
+
+/* Navigation links */
+.nav-item a {
+  margin-left: 1rem;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.nav-item a:hover {
+  color: #aaa;
+}
