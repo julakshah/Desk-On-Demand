@@ -1,10 +1,11 @@
 import "./overview.css";
+import OverviewContent from "./overview.mdx";
 
 const Overview = () => {
   return (
     <>
-      <h2>Overview Section</h2>
-      <p>write project overview here</p>
+      <h2>Overview</h2>
+      <OverviewContent />
     </>
   );
 };

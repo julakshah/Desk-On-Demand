@@ -1,10 +1,11 @@
 import "./mechanical.css";
+import MechanicalContent from "./mechanical.mdx";
 
 const Mechanical = () => {
   return (
     <>
-      <h2>Mechanical Section</h2>
-      <p>write mechanical stuff here</p>
+      <h2>Mechanical</h2>
+      <MechanicalContent />
     </>
   );
 };

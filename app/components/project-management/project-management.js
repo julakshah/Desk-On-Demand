@@ -1,10 +1,11 @@
 import "./project-management.css";
+import PMContent from "./project-management.mdx";
 
 const ProjectManagement = () => {
   return (
     <>
       <h2>PM Section</h2>
-      <p>write PM stuff here</p>
+      <PMContent />
     </>
   );
 };

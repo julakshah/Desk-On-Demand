@@ -1,7 +1,19 @@
+import withMDX from "@next/mdx";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
   reactCompiler: true,
+  pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"], // include MDX files
+  experimental: {
+    appDir: true, // ensures App Router support
+  },
 };
 
-export default nextConfig;
+// Wrap the config with MDX support
+export default withMDX({
+  extension: /\.mdx?$/,
+  options: {
+    remarkPlugins: [],
+    rehypePlugins: [],
+  },
+})(nextConfig);

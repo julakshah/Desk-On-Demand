@@ -1,10 +1,11 @@
 import "./electrical.css";
+import ElectricalContent from "./electrical.mdx";
 
 const Electrical = () => {
   return (
     <>
-      <h2>Electrical Section</h2>
-      <p>write mechanical stuff here</p>
+      <h2>Electrical</h2>
+      <ElectricalContent />
     </>
   );
 };
