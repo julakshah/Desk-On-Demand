@@ -1,6 +1,9 @@
 import "./globals.css";
 import { Inconsolata } from "next/font/google";
-import TopBar from "./components/topbar/TopBar.js";
+import TopBar from "./components/navbar/NavBar";
+import { config } from "@fortawesome/fontawesome-svg-core";
+import "@fortawesome/fontawesome-svg-core/styles.css";
+config.autoAddCss = false;
 
 const inconsolata = Inconsolata({
   subsets: ["latin"],

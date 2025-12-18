@@ -1,0 +1,64 @@
+/* Navbar container: flex row, left = icon, right = links */
+.navbar {
+  width: 100%;
+  position: sticky;
+  top: 0;
+  background-color: #fff; /* white background */
+  color: #000;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between; /* left/right alignment */
+  align-items: center;
+  z-index: 999;
+  border-bottom: 1px solid #ccc;
+  box-sizing: border-box;
+}
+
+/* Icon on the left */
+.navbar-icon {
+  color: #000;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.navbar-icon:hover {
+  color: #555;
+}
+
+/* Navigation links container (right) */
+.navbar-links {
+  display: flex;
+  align-items: center;
+}
+
+/* Individual nav links */
+.navbar-links a {
+  margin-left: 1rem;
+  color: #000;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.navbar-links a:hover {
+  color: #555;
+}
+
+/* Optional responsive behavior */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .navbar-links {
+    margin-top: 0.5rem;
+    flex-direction: column;
+    width: 100%;
+  }
+  .navbar-links a {
+    margin: 0.25rem 0;
+  }
+}
