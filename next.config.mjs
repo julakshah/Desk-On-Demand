@@ -5,8 +5,9 @@ const nextConfig = {
   reactCompiler: true,
   pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"], // include MDX files
   experimental: {
-    appDir: true, // ensures App Router support
+    appDir: true, // App Router support
   },
+  output: "export", // enable static export for GitHub Pages
 };
 
 // Wrap the config with MDX support
