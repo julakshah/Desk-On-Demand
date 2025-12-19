@@ -37,6 +37,41 @@ The primary software architecture is described by the code in these files:
 `transform_helper.py`: Implements two classes for dealing with the tf2 transform library, `StaticTranformBroadcaster` and `FrameUpdater`.
     `StaticTranformBroadcaster` is a Node initialized at the start of the code execution, which simply broadcasts all static transforms defining the scene. These are transforms relating Aruco Marker locations relative to robots and the target relative to the world frame (which moves with the target). Ideally, this would allow for us to encode offsets of different tags from the wheel center of different robots, or encode the offsets of the cameras as well, though we did not yet implement this.
     `FrameUpdater` is a class contained by the state machine, taking a reference to the robot's Node object in order to call `rclpy` methods. The frame updater knows its robot's ID number and transform name, and deals with updating it relative to other transforms upon receiving a transform update.
-    We
 
+We generated a few other Python scripts over the course of development, though these remain for individual debugging purposes and are not integrated into the final product:
+
+`encoder_test.py` was used to test the readings from the magnetic encoders, initially with the PiGPIO library and later with the lgpio library after discovering the Pi 5 does not support lgpio. As we did not electrically integrate our encoders with our chair due to time constraints, this script, which defines a node listening for encoder callbacks, is currently unused.
+
+`robot_state_can.py` was used to make quick changes to `robot_state` solely for the purpose of running on the trash can, before as many parameters were defined in the launch files.
+
+### Containers
+
+For the sake of consistency (and lack of version conflicts) we run both of our robots in a Docker container set up identically between the computers. Specifically, we created a Dockerfile pulling from the ROS2 Humble Docker image that installs all additional packages we use inside the container. We also provide two scripts for convenience --- `build_container.sh`, which builds the Docker image, and `run_container.sh`, which runs the Docker container and ensures all necessary video devices and X server environment variables, like DISPLAY, are properly passed into the container.
+
+By using these scripts, we can ensure the environment between our two robots is as similar as possible.
+
+### Launch files
+
+ROS2 allows for multiple nodes to be launched with specific parameters by bundling them withing a launch file, so we use these to make running the code simpler.
+
+`robot0_chair.launch.py` launches the `robot_state` node configured for the chair robot, as well as the `StaticTransformBroadcaster`, and sets the chair up to follow the target (id = -1). This also hardcodes the value of the video device to use, 4, though we'd like to change this in the future.
+
+`robot0_trashcan.launch.py` launches the `robot_state` node configured for the trash can, as well as the `StaticTransformBroadcaster`. and sets the can up to follow the target. 
+
+`robot0_mp_launch.py` is a modified version of the chair launch script that uses `pose_from_video` instead of `pose_from_aruco`, relying on MediaPipe detection of humans instead of Aruco tags. 
+
+`robot1_launch.py` launches the `robot_state` node configured for the trash can as a follower --- i.e., a robot following the robot with id == 0. This also does not launch `StaticTranformBroadcaster`, assuming robot0 has already run this node.
+
+Importantly, all the robots require a heartbeat to be continually published by a controller in order to drive. For the sake of safety, we don't want the robots executing motor commands if we do not have a way to override control; thus, we build the heartbeat into the teleoperation controller. 
+To run this controller, first ensure the computer running the controller is on the same network on the robots, and ensure the ROS_DOMAIN_ID is set to the same value (default 99 for this project). Then, run `ros2 run chair_robot teleop_controller` to run the controller node.
+In the controller, pressing SPACE will set each robot to `stop`. Similarly, pressing ENTER/RETURN will set each robot to `follow` (autonomous) mode, from which each can change to the other autonomous modes as normal.
+When not in autonomous mode (stopped,) the user can specify a robot to control by pressing the key corresponding to its ID --- e.g., press '0' to control robot 0. When controlling a robot, W, A, S, and D move forward, left, backward, and right, respectively. J reduces the power to the motors in 5% increments, and K increases it. 
+
+If the script shuts down, all robots will enter `stop` state within one second. This duration can be adjusted in the robot_state mode. 
+
+### Tuning the performance
+
+PID control has been implemented --- the robots have a setpoint both for linear distance from the robot as well as angular distance, and follow a PID controller which governs both. However, we did not have the time to properly tune the coefficients for PID control, nor the other coefficients like `follow_distance`, and thus the driving and follow behavior of the robots is suboptimal. 
+
+To tune or adjust these parameters, they can be listed with `ros2 param list` and subsequently tuned. 
 

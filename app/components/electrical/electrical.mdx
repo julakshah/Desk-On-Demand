@@ -8,7 +8,7 @@ The electrical system was designed with repeatability and scalability as its pri
 From a high level, our electrical systems can be understood through the energy/data flow diagram shown below:
 
 
-![](/images/energy_flow.png)
+![](images/energy_flow.png)
 
 Both robots are fully powered off of a single standalone battery, with the trash can having a 12V 7Ah LiFePO4, and the chair having a 12V 5Ah sealed lead-acid battery.
 
@@ -22,7 +22,7 @@ In terms of data flow, the Raspberry Pi communicates wirelessly with an external
 
 Our electronics can be further inspected through our electrical diagram shown below:
 
-![](/images/electrical_diagram)
+![](images/electrical_diagram)
 
 Power and ground from the battery are connected directly to the main input terminals on the fuse box. Individual fused outputs from the fuse box supply the motor controller and the DC–DC buck converter with power. It should be noted that our motor controller is connected with a 1A fuse on our trash can and a 35A fuse on our chair, due to the high power consumption of the differing motors. The buck converter, however, is protected by a 5A fuse in both systems.
 
