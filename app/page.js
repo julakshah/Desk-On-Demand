@@ -5,6 +5,7 @@ import Mechanical from "./components/mechanical/mechanical";
 import Electrical from "./components/electrical/electrical";
 import Software from "./components/software/software";
 import ProjectManagement from "./components/project-management/project-management";
+import FrameUpdate from "./components/frame-updates/frames";
 
 export default function Page() {
   return (
@@ -31,6 +32,9 @@ export default function Page() {
       </section>
       <section id="project-management" className="card">
         <ProjectManagement />
+      </section>
+      <section id="frame-update" className="card">
+        <FrameUpdate />
       </section>
     </>
   );

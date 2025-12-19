@@ -20,6 +20,23 @@ The robotic chair is also a fully functional chair, capable of supporting the fu
   height="500"
 />
 
+<div style={{ position: "relative", paddingTop: "56.25%" }}>
+  <iframe
+    src="https://www.youtube.com/embed/c71_gnccJls"
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+    }}
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+
 <iframe
   src="https://drive.google.com/file/d/12gQyLsIDh8eUoiA4IF4jO48NJgDIsTdu/preview"
   width="100%"
@@ -122,7 +139,7 @@ In the final chair, encoders are not currently present. While we purchased encod
 
 In the final chair, the LiDAR sensor is mounted, but is not run. While interfacing with the LiDAR is not difficult --- we did this by the second review date, visualizing the LiDAR scan from the sensor --- we did not end up with software logic that accounted for obstacles. We have no obstacle avoidance built into the chair and trash can, so the LiDAR data did not provide any useful input given the state of our code.
 
-#### Overal
+#### Overall
 
 Overall, we're content with the progress we've made so far on the chair. While there are avenues to explore with respect to integrating the sensors we weren't able to integrate and adding support for more insteresting and complicated control modes, we are proud of having made two functional robots, one of which doubles as a chair, which are able to follow an Aruco marker or human fairly well. 
 
