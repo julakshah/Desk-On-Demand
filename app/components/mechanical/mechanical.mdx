@@ -14,6 +14,9 @@ Despite all of this, it performed it's one purpose perfectly:
 Letting the code team get used to new hardware, and prove the basic mechanical architecture we would use for the rest of the project.
 
 This also gave us a larger window of time to work on the chair and trashbot V2 without the code or electrical team breathing down our necks!
+Here is an image of Trashbot V1's final CAD:
+
+![](images/TrashbotV1_CAD.png)
 
 #### Trashbot V2:
 Trashbot V2 was a complete do-over compared ot trashbot V1.
@@ -34,10 +37,51 @@ This creates a new problem though: How do you re-connect the pieces?
 
 For this, we designed a plate that could be laser cut which we could then screw each piece into. 
 Then, in combination with a laser cut lid, we would have a strong chassis.
+Here is what that final CAD looked like:
+
+![](images/TrashbotV2_full_CAD.png)
+
 As nice as this concept seems, the clock had other ideas.
 In the intrest of moving onto fabricating the chair, we were forced to use a different method to join the chassis pieces.
 Inspired by RC glider wing designs, we made use of the very large flat surface area of the bot frame to create a strong tape joint.
-Now, I know how that sounds, but you'd be suprised with how strong this tape joint actualy is!  
+Now, I know how that sounds, but you'd be suprised with how strong this tape joint actualy is!
+
+![](images/TrashbotV2_top_view_real.png)
+
+As you can see, with the new chassis, we have much more room for wire management and electronics placement.
+You may also notice that the wheels are enclosed now.
+This ensured that the Trashbot maintains the high level of industrial design that is expected from trashcans.
+They are also a fair bit smaller, which helps to slow down the robot and allowed more precise control.
+
+#### Chair Design:
+The chair design process started in parallel with Trashbot V2.
+This helped ensure that both projects were able to move along as quick as possible.
+To start out with, we created a bunch of different sketches for chair ideas:
+
+![](images/Chair_sketches1.png)
+![](images/Chair_sketches2.png)
+
+Then, as a team, we decided on one design to move forwards with based on industrial design, manufacturability, and ease of assembly.
+Then we made some more detailed sketches of that design from a couple different angles:
+
+![](images/Chair_sketch_final.png)
+
+With this design concept finalized, we moved onto CAD.
+The CAD for the chair requires the use of some fun tools:
+
+3D sketches, and weldments!
+
+3D sketching is fundamentaly the same as its 2D counterpats, but with double the degrees of freedom.
+We do need this added complexity though, as we need to be able to model each tube of the chair in 3D space.
+All we need to do to go from a 3D sketch to a final model is the Solidworks Weldments tool!
+This beautiful tool lets you use pre-defined "weldment profiles" to turn any sketch line into a fully modeled tube.
+Once we have the initial tubes made in CAD, we can make use of the trim extend tool to make the tubes not clip together.
+
+After all this, we end up with a final CAD model that looks like this:
+
+![](images/Chair_CAD.png)
+
+And with that, we can move onto fabrication!
 
 #### Chair Fabrication:
 The fabrication process for the chair began with making the frame:
