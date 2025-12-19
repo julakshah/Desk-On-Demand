@@ -15,7 +15,7 @@ Additionally, one of our more idealistic goals was to structure the code in a wa
 
 Our final software layout is as follows:
 
-![img](images/IMG_2819.JPEG)
+![img](images/uml.png)
 
 All code running on the robots runs within the context of a ROS2 Humble ecosystem, as this was a middleware both of us writing the software were comfortable with. ROS2 is useful for both interprocess and inter-computer communication, and given we had two robots, abstracting communication between them via a middleware familiar to us was a useful choice.
 We package this code within a ROS2 package, `chair_robot`, contained at `ros2_ws/src/chair_robot`. The package is built using the `ament_cmake` wrapper and can be built by the user by running `colcon build` in the `ros2_ws` directory.
