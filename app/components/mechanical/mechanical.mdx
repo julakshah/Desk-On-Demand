@@ -1,1 +1,127 @@
 Write your stuff here
+
+#### Trashbot V1:
+In the intrest of giving our lovely code demons as much time to test on physical hardware as possible, we began the mechanical journey with a super simple bot:
+
+![](/images/IMG_2746.JPEG)
+
+As you can see, this bot has little thought put into wire management, or electronics plaement.
+All we needed from this was a testbed with the same fundamental architecture as the final trashbot, and the chair.
+As you can see, this bot was so small that the battery didn't even fit inside!
+Instead, it was put on top. 
+This both decreased print times, and made swaping fuses easier, but was a big compromise for industrial design.
+On top of all of this, there was no place to mount a trashcan, making it a pretty trash trashbot.
+Despite all of this, it performed it's one purpose perfectly:
+
+Letting the code team get used to new hardware, and prove the basic mechanical architecture we would use for the rest of the project.
+
+This also gave us a larger window of time to work on the chair and trashbot V2 without the code or electrical team breathing down our necks!
+
+#### Trashbot V2:
+Trashbot V2 was a complete do-over compared ot trashbot V1.
+We had tons of feadback from the electrical and code teams to implement.
+The bigest change was an increase in footprint.
+This let us finaly put the batery and power distrobution board inside the robot, as well as fit some new H-bridge motor controllers.
+It also allowed us to mount the Intel Realsense depth camera in the frame.
+This ensured it was better protected and removing unsightly exposed cables.
+Last but certainly not least, the increased footprint allowed Trashbot V2 to actually carry a trashcan!
+
+While the increase in size of Trashbot V2 seems exclusively like an upgrade, it makes one thing much harder:
+
+Manufacturing:
+
+We still wanted to use a 3D printed frame for Trashbot V2, but because of the increase in footprint, the frame no longer fit on a prusa printer.
+To remedy this, we split the frame into 4 pieces. 
+This creates a new problem though: How do you re-connect the pieces?
+
+For this, we designed a plate that could be laser cut which we could then screw each piece into. 
+Then, in combination with a laser cut lid, we would have a strong chassis.
+As nice as this concept seems, the clock had other ideas.
+In the intrest of moving onto fabricating the chair, we were forced to use a different method to join the chassis pieces.
+Inspired by RC glider wing designs, we made use of the very large flat surface area of the bot frame to create a strong tape joint.
+Now, I know how that sounds, but you'd be suprised with how strong this tape joint actualy is!  
+
+#### Chair Fabrication:
+The fabrication process for the chair began with making the frame:
+
+First we made a cut list:
+
+![](/images/78542965809__6B6E25D3-66FC-4EFB-A777-5FE0BB3E6129.JPEG)
+
+We don't need anything fancy with this, as long as all the critical dimensions are clearly called out.
+With this, we were able to use a horizontal band saw to cut all the pieces of tubing we would need for the chair.
+This whole process took around 6 hours, and was completed over the course of 2 days. 
+
+Once we had all the tubes cut to length, the next step was prepping them for welding:
+
+TIG welding is very sensitive to contamination, so our first step of weld prepping involves removing anythign that could cause contamination.
+To start off, we cleaned all of the coolant from the band saw off the tubes.
+This not only entails cleaning the outside of the tubes, but the inside too.
+Since welding should melt all the way through the base metal for propper penetration, any contamination on the back side of the weld will get drawn into the weld pool.
+Luckily for us, the coolant we use for the band saw is water based, and as such, washes off very easily.
+After rinsing the coolant off, we used the belt sander to add a bevel to the ends off all the tubes.
+This will promote better weld penetration, thus giving stronger welds.
+Also, since we need to grind down some of the welds for the sake of industrial design, or fitup, the bevel prevents surface level welds that will completely dissapear when ground flush.
+Then we rinse the tubes again, this time ensuring that any aluminum dust or abrasive grit in or around the tube gets washed off.
+The last cleaning that we need to do in a sink is degreasing. 
+This removes any oils our hands may have deposited on the surface.
+
+Now our aluminum is ready to weld right?
+
+Nope! we still have to do a final wipe down with acetone, followed by the most cruicial step: pre-heating.
+Since aluminum conducts heat so much faster than steel, welding with cold base material is very dificult.
+The pieces become very hard to join, and the weld puddle lags behind your torch agressively.
+This will result in a very frustrating experience that culminates in lumpy looking, shallow welds.
+To avoid this, all we have to do is pre-heat!
+
+How do we know what temperature to pre-heat too?
+
+All you need is a Sharpie. 
+Thicker aluminum like what we are welding generaly requires a preheat between 300 and 400 degrees.
+Sharpie ink begins to burn off at around 350 degrees F, which makes it perfect for this!
+To preheat, all we do is apply a Sharpie line along both sides of the joint we are about to weld.
+Then we heat up the area using a blow torch until the Sharpie begins to dissapear.
+
+Now we are finaly ready to lay down some beads! 
+
+To start out with, we fixtured the tubes for the side of the chair base to the table.
+We then did the whole pre-heat routine, followed by laying down the first welds.
+Once the first set of welds were done on each joint, we unclamped the piece from the weld table, and finished up the rest of the joints that were previously inaccessible.
+
+Once this was done, we arive at the image below:
+
+![](/images/IMG_2819.JPEG)
+
+Then we weld the seat back for the chair. 
+This is also fixtured to the table like the sides, but is much less complicated, as there are no fancy angles.
+
+At this stage, we need to start grinding down some of the welds.
+As sad as this is, it is a necessary evil that we must endure.
+The industrial design gods will be angry at us if we have to many exposed welds.
+This also improves the fitment of all the tubes that connect both halves of the chair together.
+After both sides have been ground down, we can move onto the next stage:
+
+Connecting the sides together!
+
+![](/images/IMG_2860.JPEG)
+
+The crucial part of this step is ensuring that everything remains square.
+My strategy for this was making use of a handy 90 degree clamp as well as a bit of elbow grease to flex tubes into place.
+Other than that, this part of the process is fundamentaly the same as the previous steps.
+The only part that required wierder fixturing was the seat back, as it mounts at a wierd angle in order to conform to the wierd angles that humans form.
+
+This leaves us with a finished frame!
+
+![](/images/IMG_2870.JPEG)
+
+While this isn't a very comfortable chair, or a fun robot yet, it is certainly quite strong!
+It's already able to withstand the weight of our entire team jumping on it!
+
+![](/images/IMG_2868.JPEG)
+
+The last step before we have a complete chassis is welding on all the parts that turn this from a chair frame into a robot frame.
+This includes motor mounts, side panels for the electronics compartment, tabs, tabs, and more tabs!
+
+![](/images/4614C96E-88C2-4276-AD32-46FA83D43B99.JPEG)
+
+With all the tabs welded on, the chair chassis is complete!
