@@ -1,1 +1,65 @@
-Write overview here
+## Design Process
+
+### Overview
+
+We have built an autonomous robotic chair and trashcan, both of which are eager to follow people (or each other) and patiently wait behind them. This design solves the age-old problem of people being too lazy to walk to a chair, wishing one were immediately behind them instead. Similarly, we address the issue of litter by providing a convenient receptacle for trash right next to the target individual.
+
+On a technical level, our project consists of two robots, a chair and a trash can. Both of these robots have the same control scheme (differential drive with two bi-directional driven wheels and casters on the back). Additionally, both of these robots have a Raspberry Pi onboard to control them as well as an Intel Realsense depth camera for observing the environment. 
+To detect and follow people, we implement two methods --- Aruco marker detection via OpenCV, which is computationally cheaper than trying to detect a human, as well as human detection via MediaPipe. Both of these methods return the coordinates in 3D space of the target relative to the robot, and the robot can drive accordingly. 
+Additionally, the robots are able to communicate --- while this is not necessarily essential for simple following behavior, the robots are able to communicate the positions of targets they see to each other, potentially opening the door to more complicated coordination schemes in the future. 
+
+We help control ther robots via a script that runs locally on our computer, providing a heartbeat to ensure the robots only drive when we have the capacity to stop them. At any moment, we can choose to override their movement and supply our own velocity commands to either robot.
+The robotic chair is also a fully functional chair, capable of supporting the full weight of a person sitting on the chair while being reasonably comfortable and ergonomic.
+
+### Goals
+
+In our design process, we initially outlined a set of design goals, designed chiefly around the mechanical, electrical, and software components of the project. 
+
+Our initial goals, from the first review, were as follows:
+
+Mechanical:
+- Weld an aluminum frame for a chair.
+- Upholster chair for comfort and fit wide range of people.
+- Durable drivetrain that can withstand the weight of a range of different people sitting.
+- Make drivetrain back drivable.
+
+Electrical:
+- Easily replaceable/serviceable components
+- No/Minimal visible wires
+- Integrated e-stops
+- Robot movements can be overridden by a human pushing it
+
+Software:
+- Localization relative to the followed person
+- Communication of sensor data between two robots
+- Image processing to identify targets to follow
+- Teleop control modes and software overrides
+
+By the end of the second review, we had not added or removed goals from our intial list, and had made progress towards our initial goals. 
+
+We never had to entirely re-scope our goals or change any drastically, and are currently at the following stage:
+
+Mechanical:
+
+- The aluminum frame is welded, supports weight, and works very well.
+- The chair has not been upholstered --- however, we did study which chairs had more pleasant/ergonomic designs, and designed the chair to have a pleasant recline and soft surfaces made of wood, which are (surprisingly) quite comfortable to sit in.
+- The drivetrain withstands all weight we've put on it --- it does not drive well with the weight of a person, but this was not within the design goal --- the robot simply needs to approach a person and let them sit stationarily.
+- The drivetrain is back drivable, and the chair can be pushed in any way when not spinning the motors.
+
+Electrical:
+
+- The components are easily replaceable, with the electronic box of the chair swappable after removing four screws. The batteries are interchangeable as well.
+- Most wires are contained in the body of the chair and trash can, out of view, with connectors attaching sets of wires to the right pins. Future progress on this front would involve soldering the wires to the motor leads and routing the motor control wires through the aluminum frame.
+- The e-stop is mechanically integrated with the frame, yet is not currently wired up. In the future, we would want to spec a relay for the e-stop to control, in order to not risk running more than the rated 10A current through it. 
+- The robot movement can be overridden by a human pushing it.
+
+Software:
+
+- The robots successfully localize themselves relative to a followed person and drive to approach the person, both with Aruco markers or with human detection via MediaPipe.
+- The two robots communicate their camera data between each other via the shared `/pose_updates` topic.
+- We successfully implemented image processing identifying Aruco markers and humans via OpenCV and MediaPipe.
+- The robots can be independently controlled via keyboard input on a teleop controller script, stop upon a heartbeat from that script dropping out, and can be stopped almost immediately upon pressing SPACE. 
+
+
+### Decisions + Tradeoffs
+
