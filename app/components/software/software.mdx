@@ -1,1 +1,40 @@
-software stuff
+# Software Overview
+
+## Design Goals
+
+Our chief design goals for the project in terms of software were as follows:
+- At least two robots (trash can and chair) operating independently and communicating
+- Computer vision that can recognize an April Tag or Aruco Marker and determine the pose offset of it relative to the camera
+- Computer vision that can recognize a human to follow
+- Control code for the motor drivers to make the robots follow a specific target
+- Software overrides and remote control of the robots from a separate computer 
+
+Additionally, one of our more idealistic goals was to structure the code in a way to be extensible for future use. In essence, we aimed to avoid hard-coding our specific number of robots, IDs of followed markers, and follow target of the robots as much as possible. We also sought to make the environment similar across both robots for the sake of reliability and consistency when testing. 
+
+## Software Layout
+
+Our final software layout is as follows:
+
+All code running on the robots runs within the context of a ROS2 Humble ecosystem, as this was a middleware both of us writing the software were comfortable with. ROS2 is useful for both interprocess and inter-computer communication, and given we had two robots, abstracting communication between them via a middleware familiar to us was a useful choice.
+We package this code within a ROS2 package, `chair_robot`, contained at `ros2_ws/src/chair_robot`. The package is built using the `ament_cmake` wrapper and can be built by the user by running `colcon build` in the `ros2_ws` directory.
+
+The primary software architecture is described by the code in these files:
+
+`robot_state.py`: Defines the overall state machine that the robot runs. Every robot maintains a state throughout its lifetime, determining its behavior. The states are as follows:
+- "follow": Default following state for the robot. While in this state, it will attempt to drive towards a target by using PID control to reduce its linear and angular error from the setpoint, defined as a position a set distance in front of the follow target, and an angle pointing towards them. 
+- "hold": Autonomous state for when a robot is within a tolerable follow range of the target. The robot will remain still unless its distance from the target leaves a specific range, defined as a threshold offset from the follow distance. 
+- "search": Autonomous state for when a robot has lost its target. The robot holds still while actively looking for a new target. This triggers upon not receiving updates to the target pose for a specific length of time.
+- "stop": Hard stop for the robot, which is not exited autonomously. Triggers upon software override for teleop mode, if the teleop controller passes a 'stop' command or is driving a robot of different ID, as well as if the robot does not receive a heartbeat from the controller for over a second.
+- "teleop": The robot is manually controlled by the controller, and yields its own main loop to instead receive velocity commands from the controller.
+
+`pose_from_arcuo.py`: Implements code for detecting an Aruco Marker pose using OpenCV's built in functionality. This class has one method, `process_frame()`, which is called by the robot state class that holds a reference to this `VideoProcess` class.
+- The process frame method reads in a new frame from the camera stream, detects any Aruco markers, identifies their IDs, and broadcasts them via the `/pose_updates` topic. 
+
+`pose_from_vision.py`: Implements code for detecting a human via MediaPipe. This is implemented as a ROS2 node continually publishing to the `/pose_updates` topic, where the position of the human is estimated by taking the points MediaPipe identifies as defining the hip bone of the person, roughly estimating depth given average human hip length, and determining x/y position via the camera intrinsics and position on the frame. This currently does no recnogition of specific humans nor tracking to ensure the same human is consitently detected. 
+
+`transform_helper.py`: Implements two classes for dealing with the tf2 transform library, `StaticTranformBroadcaster` and `FrameUpdater`.
+    `StaticTranformBroadcaster` is a Node initialized at the start of the code execution, which simply broadcasts all static transforms defining the scene. These are transforms relating Aruco Marker locations relative to robots and the target relative to the world frame (which moves with the target). Ideally, this would allow for us to encode offsets of different tags from the wheel center of different robots, or encode the offsets of the cameras as well, though we did not yet implement this.
+    `FrameUpdater` is a class contained by the state machine, taking a reference to the robot's Node object in order to call `rclpy` methods. The frame updater knows its robot's ID number and transform name, and deals with updating it relative to other transforms upon receiving a transform update.
+    We 
+
+
