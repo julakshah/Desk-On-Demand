@@ -36,7 +36,7 @@ The primary software architecture is described by the code in these files:
 
 `transform_helper.py`: Implements two classes for dealing with the tf2 transform library, `StaticTranformBroadcaster` and `FrameUpdater`.
     `StaticTranformBroadcaster` is a Node initialized at the start of the code execution, which simply broadcasts all static transforms defining the scene. These are transforms relating Aruco Marker locations relative to robots and the target relative to the world frame (which moves with the target). Ideally, this would allow for us to encode offsets of different tags from the wheel center of different robots, or encode the offsets of the cameras as well, though we did not yet implement this.
-    `FrameUpdater` is a class contained by the state machine, taking a reference to the robot's Node object in order to call `rclpy` methods. The frame updater knows its robot's ID number and transform name, and deals with updating it relative to other transforms upon receiving a transform update.
+    `FrameUpdater` is a class contained by the state machine, taking a reference to the robot's Node object in order to call `rclpy` methods. The frame updater knows its robot's ID number and transform name, and deals with updating it relative to other transforms upon receiving a transform update. More information on this approach is in the appendix at the bottom of the website page.
 
 We generated a few other Python scripts over the course of development, though these remain for individual debugging purposes and are not integrated into the final product:
 
@@ -74,4 +74,8 @@ If the script shuts down, all robots will enter `stop` state within one second. 
 PID control has been implemented --- the robots have a setpoint both for linear distance from the robot as well as angular distance, and follow a PID controller which governs both. However, we did not have the time to properly tune the coefficients for PID control, nor the other coefficients like `follow_distance`, and thus the driving and follow behavior of the robots is suboptimal. 
 
 To tune or adjust these parameters, they can be listed with `ros2 param list` and subsequently tuned. 
+
+### Source Code 
+
+Our project source code is available at our repository at [this link](https://github.com/julakshah/desk-on-demand)
 
