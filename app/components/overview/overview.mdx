@@ -11,6 +11,10 @@ Additionally, the robots are able to communicate --- while this is not necessari
 We help control ther robots via a script that runs locally on our computer, providing a heartbeat to ensure the robots only drive when we have the capacity to stop them. At any moment, we can choose to override their movement and supply our own velocity commands to either robot.
 The robotic chair is also a fully functional chair, capable of supporting the full weight of a person sitting on the chair while being reasonably comfortable and ergonomic.
 
+### System diagram
+
+![System diagram image](images/system_diagram.png)
+
 ### Goals
 
 In our design process, we initially outlined a set of design goals, designed chiefly around the mechanical, electrical, and software components of the project. 
@@ -34,6 +38,10 @@ Software:
 - Communication of sensor data between two robots
 - Image processing to identify targets to follow
 - Teleop control modes and software overrides
+
+We also outlined a preliminary software architecture sketch for our project, appearing as follows:
+
+![early software diagram](images/early_software_diagram.png)
 
 By the end of the second review, we had not added or removed goals from our intial list, and had made progress towards our initial goals. 
 
@@ -63,3 +71,38 @@ Software:
 
 ### Decisions + Tradeoffs
 
+Over the course of the project, we have laid out reasoning behind the design decisions we came to making over the course of the project.
+
+#### Having multiple robots
+
+While this theoretically adds extra cost and requires us deal with communication between robots, implementing this inter-robot communication was among our learning goals for the project, and we were able to find most of the expensive components for free.
+Additionally, the simpler trash can design allowed for us to test our initial code as soon as possible, given that the metal chair frame was only drivable late in the project. Were we not able to test code on the trash can, integration would have been even more difficult. 
+
+#### Using ROS2
+
+The downsides of using ROS2 are the fact that it is a fairly heavy middleware to use, is nontrivial to set up right, and is picky about Ubuntu versions. However, these cons were mitigated by the following:
+
+ROS2 makes interprocess and inter-robot communication much easier than networking manually.
+
+ROS2 is something both of us on software (Ben and Julian) are familiar with using.
+
+ROS2 provides a very convenient library for handling frame transforms, tf2.
+
+ROS2 Humble provides a Docker image that lets us use the same environment on our different Raspberry Pis.
+
+For these reasons, we decided to go with ROS2. 
+
+
+#### Not integrating encoders
+
+In the final chair, encoders are not currently present. While we purchased encoders and spent multiple hours configuring them, reading the data sheet, and trying to interface with them, the difficulty they offered was not worth the time commitment near the close of this project. In particular, we ran into the following issues:
+
+- Our encoders have the same I2C address without a multiplexer, so we would need to purchase an I2C multiplexer in order to read encoder data using I2C. The alternative is using PWM.
+- RPi 5 does not supprot kernel level interrutps via the PiGPIO library, which makes reading PWM signals less accurate.
+- Configuring the encoders to output PWM is difficult, requiring one resister be desoldered from the board, a script flashed to the Arduino to configure it, and a script carefully used to burn this configuration to write-once memory that cannot be changed in order for the configuration to persist. 
+- With the non-burned encoder, we were still encountering difficulty consistently reading from the encoders.
+- We had not yet designed a mount for the encoders on the chair, only for the trash can. 
+
+#### Not integrating LiDAR
+
+In the final chair, the LiDAR sensor is mounted, but is not run. While interfacing with the LiDAR is not difficult --- we did this by the second review date, visualizing the LiDAR scan from the sensor --- we did not end up with software logic that accounted for obstacles. We have no obstacle avoidance built into the chair and trash can, so the LiDAR data did not provide any useful input given the state of our code.
