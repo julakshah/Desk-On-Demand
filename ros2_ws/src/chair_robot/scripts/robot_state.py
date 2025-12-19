@@ -102,7 +102,9 @@ class RobotState(Node):
         self.latest_hb_time = None # should be (seconds, ns)
 
         self.pose_bound = 0.1 # distance epsilon to pass before we assume the target has moved
-        self.follow_distance = 0.9 # distance to maintain following
+        self.follow_distance = 0.6 # distance to maintain following
+        if self.use_mp:
+            self.follow_distance = 1.0
         self.teleop_state = 0 # id of robot controlled by teleop
         self.reorient_flag = True
 
@@ -120,7 +122,7 @@ class RobotState(Node):
         self.declare_parameter("kD_lin",0.0)
         self.kD_lin = self.get_parameter("kD_lin").get_parameter_value().double_value
 
-        self.declare_parameter("speed_control",0.6)
+        self.declare_parameter("speed_control",1.0)
         self.speed_control = self.get_parameter("speed_control").get_parameter_value().double_value
 
         self.prev_err_angle = 0.0
@@ -175,7 +177,7 @@ class RobotState(Node):
 
     def main_loop(self):      
         print(f"\nbeginning main loop in state {self.state}\n")  
-        if self.latest_hb_time is not None:
+        if self.latest_hb_time is not None and self.state != "stop":
             hb_time = self.latest_hb_time
             now = self.get_clock().now()
             #duration = Duration(seconds=now.sec - hb_time.sec, nanoseconds=now.nanosec - hb_time.nanosec)
@@ -248,6 +250,7 @@ class RobotState(Node):
     
     def state_change(self):
         # How far are we from the target?
+        print(f"keys: {self.robot_to_world.distances.keys()}")
         if not self.follow_id in self.robot_to_world.distances.keys():
             print(f"Don't know where target ({self.follow_id} is!")
             target_distance = None

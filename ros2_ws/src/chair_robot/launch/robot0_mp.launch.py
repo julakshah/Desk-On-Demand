@@ -18,8 +18,12 @@ def launch_setup(context):
                 {"is_trashcan":False},
                 {"follow_id":-1},
                 {"id":0},
-                {"use_mp":True}
-            ]
+                {"use_mp":True},
+            ],
+            output={
+                'stdout': 'screen',
+                'stderr': 'screen',
+            }
         ),
         Node(
             package='chair_robot',
@@ -32,7 +36,11 @@ def launch_setup(context):
             name='mp_process',
             parameters=[
                 {"channel":4}
-            ]
+            ],
+            output={
+                'stdout': 'screen',
+                'stderr': 'screen',
+            }
         )
     ]
     

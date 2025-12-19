@@ -57,31 +57,37 @@ class PoseFromVision(Node):
         self.detect()
 
     def detect(self):
-        self.detector.detect_async(mp_image, time.time_ns() // 1_000_000)
         while self.cap.isOpened():
+            print("entering detect while loop")
             # flush buffer --- we want to make sure we grab a recent frame
             for _ in range(3):
                 self.cap.grab()
 
             # pull frame from cv2
-            ret, frame = self.cap.read()
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                del(self)
+            # ret, frame = self.cap.read()
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     del(self)
             
-            #frame = cv2.flip(frame, 1)  # pylint: disable=no-member
-            if not ret:
-                print("failed to get frame")
-                return
+            # #frame = cv2.flip(frame, 1)  # pylint: disable=no-member
+            # if not ret:
+            #     print("failed to get frame")
+            #     return
 
-            # draw the landmarks on the page for visualization
-            landmarked_frame = self.draw_landmarks_on_image(frame, self.cv_result)
+            # # draw the landmarks on the page for visualization
+            # landmarked_frame = self.draw_landmarks_on_image(frame, self.cv_result)
 
             success, image = self.cap.read()
+            if not success:
+                continue
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                del(self)
             image = cv2.flip(image,1)
 
             # Convert the image from BGR to RGB as required by the TFLite model.
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
+
+            self.detector.detect_async(mp_image, time.time_ns() // 1_000_000)
 
             print(f"FPS is: {FPS}")
             current_frame = image
@@ -101,6 +107,7 @@ class PoseFromVision(Node):
                 #See: https://medium.com/@susanne.thierfelder/create-your-own-depth-measuring-tool-with-mediapipe-facemesh-in-javascript-ae90abae2362
                 # depth = real-world-val * focal / measured-pxl-width
                 z = FOCAL_LENGTH * AV_WIDTH / hip_distance
+                print(f"Z: {z}")
                 #print(f"depth={z}\n")
                 #take the average of the hip positions
                 r23 = self.cv_result.pose_world_landmarks[0][a]
@@ -109,12 +116,14 @@ class PoseFromVision(Node):
                 y = (r23.y + r24.y)/2
                 #send the message on topic
                 msg = TransformStamped()
+                msg.header.frame_id = "robot0"
+                msg.child_frame_id = "target"
                 msg.transform.translation.x = x
                 msg.transform.translation.y = y
-                msg.transform.translation.z = z
+                msg.transform.translation.z = z / -100000
                 self.pose_topic.publish(msg)
                 #print(f"{self.cv_result.pose_world_landmarks[0][22]}")
-            cv2.imshow('pose_landmarker', current_frame)
+            #cv2.imshow('pose_landmarker', current_frame)
             cv2.waitKey(1)
 
     def setup(self):
@@ -151,7 +160,7 @@ class PoseFromVision(Node):
         print(f"cv_resuilt is: self.cv_result")
         # draw the landmarks on the page for visualization
         landmarked_frame = draw_landmarks_on_image(frame, self.cv_result)
-        cv2.imshow("frame", landmarked_frame)
+        #cv2.imshow("frame", landmarked_frame)
 
 
     def create_cap(self, attempt):
@@ -173,7 +182,7 @@ class PoseFromVision(Node):
             print("video capture FAILED, closing")
         else:
             print("video capture open failed, please restart")
-            self.create_cap(attempt=attempt + 1)
+            return self.create_cap(attempt=attempt + 1)
 
     def draw_landmarks_on_image(self, rgb_image, detection_result):
         for pose_landmarks in self.cv_result.pose_landmarks:
@@ -193,14 +202,15 @@ class PoseFromVision(Node):
         return rgb_image
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        channel = 4
-    else:
-        channel = int(sys.argv[1])
+    #if len(sys.argv) < 2:
+    #   channel = 4
+    #else:
+    #    channel = int(sys.argv[1])
+    channel = 4 #HARDCODED 
     rclpy.init()
     pose_from_vision = PoseFromVision(channel=channel)
     executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(pose_from_vision)
-    executor.spin
+    executor.spin()
     #rclpy.spin(pose_from_vision)
     #rclpy.shutdown()
