@@ -7,8 +7,10 @@ const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"],
   output: "export", // static export
-  basePath: isProd ? `/${repoName}` : "",
-  assetPrefix: isProd ? `/${repoName}/` : "",
+  //basePath: isProd ? `/${repoName}` : "",
+  //assetPrefix: isProd ? `/${repoName}/` : "",
+  basePath: "/desk-on-demand",
+  assetPrefix: "/desk-on-demand/",
   images: {
     unoptimized: true, // Required for static export
   },

@@ -15,6 +15,8 @@ Additionally, one of our more idealistic goals was to structure the code in a wa
 
 Our final software layout is as follows:
 
+![img](images/IMG_2819.JPEG)
+
 All code running on the robots runs within the context of a ROS2 Humble ecosystem, as this was a middleware both of us writing the software were comfortable with. ROS2 is useful for both interprocess and inter-computer communication, and given we had two robots, abstracting communication between them via a middleware familiar to us was a useful choice.
 We package this code within a ROS2 package, `chair_robot`, contained at `ros2_ws/src/chair_robot`. The package is built using the `ament_cmake` wrapper and can be built by the user by running `colcon build` in the `ros2_ws` directory.
 
@@ -35,6 +37,6 @@ The primary software architecture is described by the code in these files:
 `transform_helper.py`: Implements two classes for dealing with the tf2 transform library, `StaticTranformBroadcaster` and `FrameUpdater`.
     `StaticTranformBroadcaster` is a Node initialized at the start of the code execution, which simply broadcasts all static transforms defining the scene. These are transforms relating Aruco Marker locations relative to robots and the target relative to the world frame (which moves with the target). Ideally, this would allow for us to encode offsets of different tags from the wheel center of different robots, or encode the offsets of the cameras as well, though we did not yet implement this.
     `FrameUpdater` is a class contained by the state machine, taking a reference to the robot's Node object in order to call `rclpy` methods. The frame updater knows its robot's ID number and transform name, and deals with updating it relative to other transforms upon receiving a transform update.
-    We 
+    We
 
 
