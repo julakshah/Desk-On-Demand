@@ -2,7 +2,10 @@
 
 ### Overview
 
-We have built an autonomous robotic chair and trashcan, both of which are eager to follow people (or each other) and patiently wait behind them. This design solves the age-old problem of people being too lazy to walk to a chair, wishing one were immediately behind them instead. Similarly, we address the issue of litter by providing a convenient receptacle for trash right next to the target individual.
+We have built an autonomous robotic chair and trashcan, both of which are eager to follow people (or each other) and patiently wait behind them. 
+This design solves the age-old problem of people being too lazy to walk to a chair, wishing one were immediately behind them instead. 
+This target group of people too lazy to walk to a chair provides another probelm we have to address: Litter.
+Given the strong correlation between people too lazy to walk to a chair, and people too lazy to throw away their trash, we had to provided a convenient receptacle for trash that would also follow the target individual.
 
 On a technical level, our project consists of two robots, a chair and a trash can. Both of these robots have the same control scheme (differential drive with two bi-directional driven wheels and casters on the back). Additionally, both of these robots have a Raspberry Pi onboard to control them as well as an Intel Realsense depth camera for observing the environment. 
 To detect and follow people, we implement two methods --- Aruco marker detection via OpenCV, which is computationally cheaper than trying to detect a human, as well as human detection via MediaPipe. Both of these methods return the coordinates in 3D space of the target relative to the robot, and the robot can drive accordingly. 
